@@ -1,7 +1,7 @@
 package main
 
-import "fmt"
+import "paperlink/db"
 
 func main() {
-	fmt.Println("Hello World")
+	db.Init()
 }
