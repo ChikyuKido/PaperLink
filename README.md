@@ -38,40 +38,9 @@ The platform is built for self-hosting.
 
 ---
 
-## Roles & Permissions
+## License
 
-- **Viewer** – View PDFs & leave comments.  
-- **Editor** – Upload, edit, and organize documents.  
-- **Admin** – Full control over settings, users, and permissions.
-
----
-
-## Technology
-
-- Frontend: Vue.js  
-- Backend: Go  
-- Database: PostgreSQL  
-- PDF Rendering: PDF.js  
-- Deployment: Docker Compose  
-
----
-
-## Goals
-
-- Central place for PDF files  
-- Browser-based editing and collaboration  
-- Organization through folders and tags  
-- Stable and easy to self-host
-
-### Future ideas
-- OCR text recognition  
-- Pen/stylus support  
-- Usage statistics  
-
-### Not planned
-- Support for other file types  
-- Mobile app  
-- Multilingual UI  
+Paperlink is released under the **MIT License**.  
 
 ---
 
