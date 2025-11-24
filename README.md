@@ -40,10 +40,5 @@ The platform is built for self-hosting.
 
 ## License
 
-Paperlink is released under the **MIT License**.  
+Paperlink is released under the **GPL-3.0 License**.  
 
----
-
-## Vision
-
-To provide a fast, modern, self-hosted way to work with PDFs together — without relying on external services or complex ecosystems.
