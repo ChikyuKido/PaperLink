@@ -9,29 +9,21 @@ import {
   Home as HomeIcon,
   BarChart3,
 } from 'lucide-vue-next'
+import type { Item } from '@/dto/item'
 
-type Item = {
-  id: string
-  name: string
-  type: 'folder' | 'file'
-  size?: number // in bytes (for files)
-  children?: Item[]
-}
-
-// Simple in-memory folder tree with example sizes
 const initialTree: Item[] = [
   {
     id: '1',
     name: 'Projects',
     type: 'folder',
     children: [
-      { id: '1-1', name: 'Proposal.pdf', type: 'file', size: 320_000 }, // ~320 KB
+      { id: '1-1', name: 'Proposal.pdf', type: 'file', size: 320_000 },
       {
         id: '1-2',
         name: 'Specs',
         type: 'folder',
         children: [
-          { id: '1-2-1', name: 'Architecture.pdf', type: 'file', size: 2_400_000 }, // ~2.4 MB
+          { id: '1-2-1', name: 'Architecture.pdf', type: 'file', size: 2_400_000 },
         ],
       },
     ],
@@ -41,22 +33,17 @@ const initialTree: Item[] = [
     name: 'Invoices',
     type: 'folder',
     children: [
-      { id: '2-1', name: 'Invoice-2025.pdf', type: 'file', size: 180_000 }, // ~180 KB
+      { id: '2-1', name: 'Invoice-2025.pdf', type: 'file', size: 180_000 },
     ],
   },
-  { id: '3', name: 'Readme.pdf', type: 'file', size: 64_000 }, // ~64 KB
+  { id: '3', name: 'Readme.pdf', type: 'file', size: 64_000 },
 ]
 
 const tree = ref(initialTree) as Ref<Item[]>
-
-// Current path (stack of folders)
 const path = ref<Item[]>([])
-
-// Navigation history: list of paths
 const history = ref<Item[][]>([[]])
 const historyIndex = ref(0)
 
-// Items currently visible (root or children of last folder)
 const currentItems = computed(() => {
   const last = path.value[path.value.length - 1]
   if (!last) return tree.value
@@ -68,7 +55,6 @@ const currentFolderLabel = computed(() => {
   return last ? last.name : 'All documents'
 })
 
-// Format bytes to human-readable string
 function formatBytes(bytes: number): string {
   if (!bytes || bytes <= 0) return '0 B'
   const units = ['B', 'KB', 'MB', 'GB', 'TB']
@@ -78,10 +64,10 @@ function formatBytes(bytes: number): string {
     value /= 1024
     idx++
   }
-  return `${value.toFixed(value >= 10 || idx === 0 ? 0 : 1)} ${units[idx]}`
+  const decimals = value >= 10 || idx === 0 ? 0 : 1
+  return `${value.toFixed(decimals)} ${units[idx]}`
 }
 
-// Overall library statistics
 const libraryStats = computed(() => {
   const result = { folders: 0, files: 0, bytes: 0 }
 
@@ -103,7 +89,6 @@ const libraryStats = computed(() => {
   return result
 })
 
-// Statistics for the current level only
 const currentLevelStats = computed(() => {
   let folders = 0
   let files = 0
@@ -125,10 +110,7 @@ const currentLevelStats = computed(() => {
 
 function updatePath(newPath: Item[], pushToHistory = true) {
   path.value = newPath
-
   if (!pushToHistory) return
-
-  // When navigating to a new place, drop any "forward" history
   history.value = history.value.slice(0, historyIndex.value + 1)
   history.value.push(newPath)
   historyIndex.value++
@@ -164,7 +146,6 @@ function goForward() {
   path.value = history.value[historyIndex.value]
 }
 
-// Placeholder for opening a file (wire this to your viewer/router later)
 function openFile(item: Item) {
   console.log('Open file:', item.name)
 }
@@ -179,16 +160,14 @@ function iconFor(item: Item) {
       class="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-50 transition-colors"
   >
     <div class="min-h-screen flex flex-col">
-      <!-- Top header (flush, no logo) -->
       <header class="bg-neutral-50/90 dark:bg-neutral-950/90 backdrop-blur-sm">
         <div
             class="mx-auto max-w-6xl px-4 lg:px-6 py-3.5 flex items-center justify-between gap-4"
         >
-          <!-- Left: navigation buttons -->
           <div class="flex items-center gap-1.5 sm:gap-2">
             <button
                 type="button"
-                class="inline-flex items-center gap-1.5 rounded-full border border-neutral-300 bg-white px-3 py-1.5 text-xs sm:text-sm text-neutral-800 hover:border-neutral-400 hover:bg-neutral-50 transition-colors disabled:opacity-40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800 dark:hover:border-neutral-500"
+                class="inline-flex h-9 items-center gap-1.5 rounded-full border border-neutral-300 bg-white px-3 text-xs sm:text-sm text-neutral-800 hover:border-neutral-400 hover:bg-neutral-50 transition-colors disabled:opacity-40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800 dark:hover:border-neutral-500"
                 :disabled="path.length === 0"
                 @click="goHome"
             >
@@ -198,7 +177,7 @@ function iconFor(item: Item) {
 
             <button
                 type="button"
-                class="inline-flex items-center gap-1.5 rounded-full border border-neutral-300 bg-white px-3 py-1.5 text-xs sm:text-sm text-neutral-800 hover:border-neutral-400 hover:bg-neutral-50 transition-colors disabled:opacity-40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800 dark:hover:border-neutral-500"
+                class="inline-flex h-9 items-center gap-1.5 rounded-full border border-neutral-300 bg-white px-3 text-xs sm:text-sm text-neutral-800 hover:border-neutral-400 hover:bg-neutral-50 transition-colors disabled:opacity-40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800 dark:hover:border-neutral-500"
                 :disabled="historyIndex === 0"
                 @click="goBack"
             >
@@ -208,7 +187,7 @@ function iconFor(item: Item) {
 
             <button
                 type="button"
-                class="inline-flex items-center gap-1.5 rounded-full border border-neutral-300 bg-white px-3 py-1.5 text-xs sm:text-sm text-neutral-800 hover:border-neutral-400 hover:bg-neutral-50 transition-colors disabled:opacity-40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800 dark:hover:border-neutral-500"
+                class="inline-flex h-9 items-center gap-1.5 rounded-full border border-neutral-300 bg-white px-3 text-xs sm:text-sm text-neutral-800 hover:border-neutral-400 hover:bg-neutral-50 transition-colors disabled:opacity-40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800 dark:hover:border-neutral-500"
                 :disabled="historyIndex >= history.length - 1"
                 @click="goForward"
             >
@@ -217,19 +196,16 @@ function iconFor(item: Item) {
             </button>
           </div>
 
-          <!-- Right: statistics – same height level as nav buttons -->
           <div class="flex items-center justify-end">
             <div
-                class="inline-flex items-center h-9 rounded-full border border-neutral-300 bg-white px-3 sm:px-4 text-[11px] sm:text-xs text-neutral-800 shadow-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                class="inline-flex h-9 items-center rounded-full border border-neutral-300 bg-white px-3 sm:px-4 text-[11px] sm:text-xs text-neutral-800 shadow-sm dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
             >
-              <!-- Icon -->
               <div
                   class="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-700/10 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300"
               >
                 <BarChart3 class="w-4 h-4" aria-hidden="true" />
               </div>
 
-              <!-- Text stats -->
               <div class="ml-2 flex items-center gap-2 sm:gap-3">
                 <span
                     class="hidden sm:inline text-[10px] uppercase tracking-[0.16em] text-neutral-500 dark:text-neutral-400"
@@ -260,10 +236,8 @@ function iconFor(item: Item) {
         </div>
       </header>
 
-      <!-- Content area -->
       <main class="flex-1">
         <div class="mx-auto max-w-6xl px-4 lg:px-6 py-5 lg:py-7 space-y-4">
-          <!-- Breadcrumb / folder path -->
           <nav
               class="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400"
               aria-label="Folder path"
@@ -308,11 +282,9 @@ function iconFor(item: Item) {
             </ol>
           </nav>
 
-          <!-- Explorer -->
           <section
               class="rounded-2xl border border-neutral-200 bg-white shadow-sm shadow-neutral-200/70 overflow-hidden dark:border-neutral-800 dark:bg-neutral-900 dark:shadow-none"
           >
-            <!-- Explorer header -->
             <div
                 class="border-b border-neutral-200 bg-gradient-to-r from-neutral-50 via-white to-emerald-50/70 px-4 sm:px-6 py-3.5 flex items-center gap-3 dark:border-neutral-800 dark:from-neutral-900 dark:via-neutral-900 dark:to-emerald-900/30"
             >
@@ -336,7 +308,6 @@ function iconFor(item: Item) {
               </div>
             </div>
 
-            <!-- Grid of items -->
             <div class="px-4 sm:px-6 py-5 sm:py-6">
               <div
                   class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5"
@@ -373,7 +344,6 @@ function iconFor(item: Item) {
                   </div>
                 </div>
 
-                <!-- Empty state -->
                 <div
                     v-if="currentItems.length === 0"
                     class="col-span-full flex flex-col items-center justify-center rounded-xl border border-dashed border-neutral-300 bg-neutral-50 py-10 text-center dark:border-neutral-700 dark:bg-neutral-900"
@@ -401,5 +371,4 @@ function iconFor(item: Item) {
 </template>
 
 <style scoped>
-/* All layout and colors are handled via Tailwind utility classes. */
 </style>
