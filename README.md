@@ -1,4 +1,4 @@
-<h1 align="center" style="font-size: 3rem;">
+<h1 align="center">
   Paperlink
 </h1>
 
@@ -10,109 +10,71 @@
   <em>A self-hosted PDF management and collaboration platform.</em>
 </p>
 
-
 ---
 
 ## About
 
-Paperlink is a web-based platform for storing, organizing, viewing, and editing PDFs.
-It’s built to replace the messy workflow of scattered folders, random cloud drives, and multiple PDF tools.
-With Paperlink, everything lives in one clean interface:
-upload documents, annotate them in the browser, leave comments, and collaborate together in real time.
+Paperlink is a clean and lightweight platform for storing, organizing, viewing, and editing PDFs in the browser.  
+It’s designed to replace the usual mix of folder chaos and messed up PDF tools with a single, consistent interface that’s easy to host and use.
 
-The entire system is designed for self-hosting, giving full control over documents and privacy.
+You can upload documents, annotate them in the browser, leave page-based comments, and work together in real time.  
+The platform is built for self-hosting.
 
 ---
 
 ## Features
 
-* Drag & drop PDF upload
-* Built-in PDF viewer
-* Highlighting, shapes, text annotations
-* Page-based comments with threads
-* Live collaboration (WebSockets)
-* Automatic versioning of all changes
-* Workspaces and folders
-* Tagging system
-* Export PDFs with or without annotations
-* Audit log for changes
-* Backup options (database + files)
+- Drag-and-drop PDF upload  
+- Integrated PDF viewer  
+- Highlighting, shapes, and text annotations  
+- Page-based comment threads  
+- Real-time collaboration via WebSockets  
+- Automatic version history for every document  
+- Workspaces and folder structure  
+- Tagging system  
+- Export options (with or without annotations)  
+- Audit log for changes  
+- Backup options for database and files  
 
 ---
 
 ## Roles & Permissions
 
-Paperlink uses three simple roles:
-
-### Viewer
-
-* View PDFs
-* Read annotations and comments
-* Add comments
-* Cannot upload or edit documents
-
-### Editor
-
-* All Viewer abilities
-* Upload PDFs
-* Add and edit annotations
-* Organize folders and tags
-* Delete or restore their own files
-
-### Admin
-
-* Full system access
-* Manage users and roles
-* Change system settings
-* Handle backups and restores
-* Override any permissions
+- **Viewer** – View PDFs & leave comments.  
+- **Editor** – Upload, edit, and organize documents.  
+- **Admin** – Full control over settings, users, and permissions.
 
 ---
 
 ## Technology
 
-* Frontend: Vue.js
-* Backend: Go (REST API + WebSockets)
-* Database: PostgreSQL
-* PDF Rendering: PDF.js
-* Deployment: Docker Compose
+- Frontend: Vue.js  
+- Backend: Go  
+- Database: PostgreSQL  
+- PDF Rendering: PDF.js  
+- Deployment: Docker Compose  
 
 ---
 
 ## Goals
 
-* Simple storage for PDFs
-* Web-based PDF viewing and editing
-* Real-time collaboration
-* Clear folder and tagging structure
-* Stable, self-hosted setup
+- Central place for PDF files  
+- Browser-based editing and collaboration  
+- Organization through folders and tags  
+- Stable and easy to self-host
 
-### Optional future additions
-
-* OCR text recognition
-* Pen/stylus input
-* Usage statistics
+### Future ideas
+- OCR text recognition  
+- Pen/stylus support  
+- Usage statistics  
 
 ### Not planned
-
-* Support for non-PDF file types
-* Mobile app
-* Multilingual UI
-
----
-
-## Team
-
-* Elias Langthaler – Backend, Database
-* Thomas Dietz – Backend, Database
-* Philipp Schwarzinger – Frontend
-* Niklas Zagler – Frontend, Documentation
-* Jan Paul Birchmann – Design, Testing
+- Support for other file types  
+- Mobile app  
+- Multilingual UI  
 
 ---
 
 ## Vision
 
-To offer a fast, modern, self-hosted way to work with PDFs together —
-without relying on external services, paid tools, or locked-down ecosystems.
-
+To provide a fast, modern, self-hosted way to work with PDFs together — without relying on external services or complex ecosystems.
