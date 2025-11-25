@@ -22,8 +22,6 @@ import {
   Search as SearchIcon,
   Settings as SettingsIcon,
   Shield as AdminIcon,
-  FileText,
-  FolderTree,
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -66,9 +64,13 @@ function isActive(path: string) {
                   class="flex items-center gap-3 group-has-[[data-collapsible=icon]]/sidebar-wrapper:justify-center group-has-[[data-collapsible=icon]]/sidebar-wrapper:gap-0"
               >
                 <div
-                    class="flex h-9 w-8 items-center justify-center rounded-md bg-neutral-900 text-neutral-50 text-[10px] font-semibold tracking-[0.2em] dark:bg-neutral-100 dark:text-neutral-900"
+                    class="flex h-9 w-8 items-center justify-center rounded-md bg-neutral-900 text-neutral-50 text-[10px] font-semibold tracking-[0.2em] dark:bg-neutral-100 dark:text-neutral-900 overflow-hidden"
                 >
-                  PL
+                  <img
+                      src="/logo.png"
+                      alt="Paperlink logo"
+                      class="h-7 w-7 object-contain"
+                  />
                 </div>
                 <div
                     class="grid text-left text-sm leading-tight group-has-[[data-collapsible=icon]]/sidebar-wrapper:hidden"
@@ -119,54 +121,6 @@ function isActive(path: string) {
                         class="truncate group-has-[[data-collapsible=icon]]/sidebar-wrapper:hidden"
                     >
                       {{ item.title }}
-                    </span>
-                  </RouterLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup class="mt-4">
-          <SidebarGroupLabel
-              class="text-[11px] uppercase tracking-[0.16em] text-neutral-500 dark:text-neutral-400 group-has-[[data-collapsible=icon]]/sidebar-wrapper:hidden"
-          >
-            Library
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                    as-child
-                    class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-neutral-800 hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-900 group-has-[[data-collapsible=icon]]/sidebar-wrapper:px-0"
-                >
-                  <RouterLink
-                      to="/"
-                      class="flex items-center gap-2 group-has-[[data-collapsible=icon]]/sidebar-wrapper:justify-center group-has-[[data-collapsible=icon]]/sidebar-wrapper:gap-0"
-                  >
-                    <FolderTree class="h-4 w-4 shrink-0" />
-                    <span
-                        class="truncate group-has-[[data-collapsible=icon]]/sidebar-wrapper:hidden"
-                    >
-                      Folders
-                    </span>
-                  </RouterLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                    as-child
-                    class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-neutral-800 hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-900 group-has-[[data-collapsible=icon]]/sidebar-wrapper:px-0"
-                >
-                  <RouterLink
-                      to="/search"
-                      class="flex items-center gap-2 group-has-[[data-collapsible=icon]]/sidebar-wrapper:justify-center group-has-[[data-collapsible=icon]]/sidebar-wrapper:gap-0"
-                  >
-                    <FileText class="h-4 w-4 shrink-0" />
-                    <span
-                        class="truncate group-has-[[data-collapsible=icon]]/sidebar-wrapper:hidden"
-                    >
-                      All documents
                     </span>
                   </RouterLink>
                 </SidebarMenuButton>
