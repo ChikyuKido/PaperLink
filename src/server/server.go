@@ -2,6 +2,7 @@ package server
 
 import (
 	"paperlink/server/routes/auth"
+	"paperlink/server/routes/pdf"
 	"paperlink/util"
 
 	"github.com/gin-gonic/gin"
@@ -13,6 +14,7 @@ func Start() {
 	r := gin.Default()
 
 	auth.InitAuthRouter(r)
+	pdf.InitPDFRouter(r)
 	log.Info("starting server at port 8080")
 	err := r.Run(":8080")
 	if err != nil {
