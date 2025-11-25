@@ -17,8 +17,9 @@ func Init() {
 	if err != nil {
 		log.Fatalf("failed to connect database: %v", err)
 	}
-	_ = db.Exec(`
+	db.Exec(`
 		PRAGMA journal_mode=WAL;
+		PRAGMA foreign_keys = ON;
 	`)
 
 	err = db.AutoMigrate(
