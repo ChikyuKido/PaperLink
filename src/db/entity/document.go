@@ -1,8 +1,8 @@
 package entity
 
 type Document struct {
-	ID       int `gorm:"primary_key;AUTO_INCREMENT"`
-	UUID     string
+	ID       int    `gorm:"primary_key;AUTO_INCREMENT"`
+	UUID     string `gorm:"uniqueIndex"`
 	FileUUID string `gorm:"foreignKey:FileDocumentUUID"`
 	Name     string
 	Size     uint64
