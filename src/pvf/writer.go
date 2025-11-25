@@ -16,12 +16,9 @@ var VERSION = []byte{0x1}
 
 func WritePVFFromPDF(inputFile string) (string, error) {
 	tempDir, err := os.MkdirTemp(os.TempDir(), "pvf_*")
-	fmt.Println(tempDir)
 	if err != nil {
 		return "", fmt.Errorf("could not create temporary directory: %w", err)
 	}
-	//defer os.RemoveAll(tempDir)
-
 	err = api.SplitFile(inputFile, tempDir, 1, nil)
 	if err != nil {
 		return "", fmt.Errorf("pdfcpu failed to split file: %w", err)
@@ -50,7 +47,7 @@ func WritePVFFromPDF(inputFile string) (string, error) {
 	outputFile.Write(VERSION)                                // 1
 	binary.Write(outputFile, binary.LittleEndian, pageCount) // 8
 	currentOffset := uint64(13)
-	offsetForPages := currentOffset + pageCount*8
+	offsetForPages := currentOffset + pageCount*16
 	var pvfPages [][]byte
 	for _, file := range files {
 		if file.IsDir() || filepath.Ext(file.Name()) != ".pdf" {
@@ -63,10 +60,14 @@ func WritePVFFromPDF(inputFile string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("failed to read split page %s: %w", file.Name(), err)
 		}
-
+		err = os.Remove(pagePath)
+		if err != nil {
+			return "", fmt.Errorf("failed to remove page %s: %w", file.Name(), err)
+		}
 		pvfPages = append(pvfPages, pageData)
-		binary.Write(outputFile, binary.LittleEndian, offsetForPages) // 8
-		currentOffset += 8
+		binary.Write(outputFile, binary.LittleEndian, offsetForPages)        // 8
+		binary.Write(outputFile, binary.LittleEndian, uint64(len(pageData))) // 8
+		currentOffset += 16
 		offsetForPages += uint64(len(pageData))
 	}
 	for _, page := range pvfPages {
@@ -77,5 +78,5 @@ func WritePVFFromPDF(inputFile string) (string, error) {
 		return "", fmt.Errorf("wrong offsets for pvf file. Expected %d, got %d", offsetForPages, currentOffset)
 	}
 
-	return "test", nil
+	return outputFilePath, nil
 }
