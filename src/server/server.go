@@ -1,16 +1,19 @@
 package server
 
 import (
-	"github.com/gin-gonic/gin"
-	"log"
 	"paperlink/server/routes/auth"
+	"paperlink/util"
+
+	"github.com/gin-gonic/gin"
 )
+
+var log = util.GroupLog("SERVER")
 
 func Start() {
 	r := gin.Default()
 
 	auth.InitAuthRouter(r)
-
+	log.Info("starting server at port 8080")
 	err := r.Run(":8080")
 	if err != nil {
 		log.Fatal(err)
