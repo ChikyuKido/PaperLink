@@ -157,6 +157,23 @@ function iconFor(item: Item) {
 }
 
 /**
+ * Helpers for datetime-local input
+ */
+function pad2(n: number): string {
+  return n < 10 ? `0${n}` : `${n}`
+}
+
+function formatDateForInput(date: Date): string {
+  const year = date.getFullYear()
+  const month = pad2(date.getMonth() + 1)
+  const day = pad2(date.getDate())
+  const hours = pad2(date.getHours())
+  const minutes = pad2(date.getMinutes())
+  // datetime-local: YYYY-MM-DDTHH:MM
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
+/**
  * Upload modal + file handling
  */
 const isUploadModalOpen = ref(false)
@@ -167,6 +184,10 @@ const uploadFile = ref<File | null>(null)
 const uploadFileName = ref('')
 const uploadError = ref<string | null>(null)
 
+// "Real" metadata fields
+const uploadCreatedAt = ref<string>('')   // datetime-local string
+const uploadModifiedAt = ref<string>('')  // datetime-local string
+
 const fileInput = ref<HTMLInputElement | null>(null)
 
 function resetUploadState() {
@@ -176,6 +197,8 @@ function resetUploadState() {
   uploadFile.value = null
   uploadFileName.value = ''
   uploadError.value = null
+  uploadCreatedAt.value = ''
+  uploadModifiedAt.value = ''
 }
 
 function triggerUpload() {
@@ -199,6 +222,8 @@ function onFileChange(event: Event) {
   if (!files || files.length === 0) {
     uploadFile.value = null
     uploadFileName.value = ''
+    uploadCreatedAt.value = ''
+    uploadModifiedAt.value = ''
     return
   }
 
@@ -210,6 +235,8 @@ function onFileChange(event: Event) {
     uploadError.value = 'Only PDF files are allowed.'
     uploadFile.value = null
     uploadFileName.value = ''
+    uploadCreatedAt.value = ''
+    uploadModifiedAt.value = ''
     target.value = ''
     return
   }
@@ -217,7 +244,11 @@ function onFileChange(event: Event) {
   uploadFile.value = file
   uploadFileName.value = file.name
 
-  // Do NOT force-fill name; leaving it empty is allowed.
+  // Pre-fill metadata timestamps from file.lastModified (best available on client)
+  const lastModifiedDate = new Date(file.lastModified)
+  const formatted = formatDateForInput(lastModifiedDate)
+  if (!uploadCreatedAt.value) uploadCreatedAt.value = formatted
+  if (!uploadModifiedAt.value) uploadModifiedAt.value = formatted
 }
 
 /**
@@ -245,7 +276,7 @@ function addFileToCurrentFolder(item: Item) {
   }
 
   if (!last.children) {
-    // @ts-ignore - depending on Item definition this may be optional
+    // @ts-ignore - children may be optional on Item
     last.children = []
   }
   last.children.push(item)
@@ -274,14 +305,19 @@ function submitUpload() {
     type: 'file',
     // @ts-ignore - size may or may not exist on Item, depending on your DTO
     size: uploadFile.value.size,
+    // If your Item type supports metadata, you could add it here, e.g.:
+    // createdAt: uploadCreatedAt.value,
+    // modifiedAt: uploadModifiedAt.value,
   }
 
-  // TODO: integrate with your upload API and persist metadata (tag/description)
+  // Hook for your backend: send file + real metadata
   console.log('Uploading PDF with metadata:', {
     name,
     tag: uploadTag.value,
     description: uploadDescription.value,
     file: uploadFile.value,
+    createdAt: uploadCreatedAt.value || null,
+    modifiedAt: uploadModifiedAt.value || null,
   })
 
   addFileToCurrentFolder(newItem)
@@ -549,6 +585,7 @@ function submitUpload() {
         </div>
 
         <div class="px-4 sm:px-6 py-4 space-y-4">
+          <!-- Name -->
           <div class="space-y-1.5">
             <label class="block text-xs font-medium text-neutral-700 dark:text-neutral-200">
               Name
@@ -565,6 +602,7 @@ function submitUpload() {
             </p>
           </div>
 
+          <!-- Tag -->
           <div class="space-y-1.5">
             <label class="block text-xs font-medium text-neutral-700 dark:text-neutral-200">
               Tag
@@ -580,9 +618,42 @@ function submitUpload() {
             </p>
           </div>
 
+          <!-- Real metadata -->
+          <div class="space-y-2">
+            <p class="text-xs font-medium text-neutral-700 dark:text-neutral-200">
+              Document metadata
+            </p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div class="space-y-1">
+                <label class="block text-[11px] font-medium text-neutral-600 dark:text-neutral-300">
+                  Created at
+                </label>
+                <input
+                    v-model="uploadCreatedAt"
+                    type="datetime-local"
+                    class="w-full rounded-xl border border-neutral-300 bg-neutral-50 px-2.5 py-2 text-xs text-neutral-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50"
+                />
+              </div>
+              <div class="space-y-1">
+                <label class="block text-[11px] font-medium text-neutral-600 dark:text-neutral-300">
+                  Modified at
+                </label>
+                <input
+                    v-model="uploadModifiedAt"
+                    type="datetime-local"
+                    class="w-full rounded-xl border border-neutral-300 bg-neutral-50 px-2.5 py-2 text-xs text-neutral-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50"
+                />
+              </div>
+            </div>
+            <p class="text-[11px] text-neutral-500 dark:text-neutral-400">
+              Pre-filled from the file where possible. You can adjust these before uploading.
+            </p>
+          </div>
+
+          <!-- Description / notes -->
           <div class="space-y-1.5">
             <label class="block text-xs font-medium text-neutral-700 dark:text-neutral-200">
-              Metadata / notes
+              Description / notes
             </label>
             <textarea
                 v-model="uploadDescription"
@@ -592,6 +663,7 @@ function submitUpload() {
             />
           </div>
 
+          <!-- File picker -->
           <div class="space-y-2">
             <label class="block text-xs font-medium text-neutral-700 dark:text-neutral-200">
               PDF file
