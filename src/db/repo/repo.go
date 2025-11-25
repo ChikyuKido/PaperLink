@@ -11,7 +11,7 @@ type Repository[T any] struct {
 }
 
 func NewRepository[T any]() *Repository[T] {
-	return &Repository[T]{db: db.DB}
+	return &Repository[T]{db: db.DB()}
 }
 
 func (r *Repository[T]) Save(entity *T) error {
