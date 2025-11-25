@@ -12,7 +12,9 @@ var log = util.GroupLog("SERVER")
 func Start() {
 	r := gin.Default()
 
+	// Auth routes registrieren
 	auth.InitAuthRouter(r)
+
 	log.Info("starting server at port 8080")
 	err := r.Run(":8080")
 	if err != nil {
