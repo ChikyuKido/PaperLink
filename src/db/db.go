@@ -22,7 +22,7 @@ func Init() {
 	`)
 
 	err = db.AutoMigrate(
-		&entity.Annotation{}, &entity.AnnotationAction{}, &entity.Category{},
+		&entity.Annotation{}, &entity.AnnotationAction{}, &entity.FileDocument{},
 		&entity.Document{}, &entity.DocumentUser{}, &entity.Notification{},
 		&entity.Tag{}, &entity.User{},
 	)
