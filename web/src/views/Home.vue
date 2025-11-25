@@ -8,6 +8,8 @@ import {
   ArrowRight,
   Home as HomeIcon,
   BarChart3,
+  Plus,
+  X,
 } from 'lucide-vue-next'
 import type { Item } from '@/dto/item'
 
@@ -152,6 +154,138 @@ function openFile(item: Item) {
 
 function iconFor(item: Item) {
   return item.type === 'folder' ? Folder : FileText
+}
+
+/**
+ * Upload modal + file handling
+ */
+const isUploadModalOpen = ref(false)
+const uploadName = ref('')
+const uploadTag = ref('')
+const uploadDescription = ref('')
+const uploadFile = ref<File | null>(null)
+const uploadFileName = ref('')
+const uploadError = ref<string | null>(null)
+
+const fileInput = ref<HTMLInputElement | null>(null)
+
+function resetUploadState() {
+  uploadName.value = ''
+  uploadTag.value = ''
+  uploadDescription.value = ''
+  uploadFile.value = null
+  uploadFileName.value = ''
+  uploadError.value = null
+}
+
+function triggerUpload() {
+  resetUploadState()
+  isUploadModalOpen.value = true
+}
+
+function closeUploadModal() {
+  isUploadModalOpen.value = false
+}
+
+function openFilePicker() {
+  fileInput.value?.click()
+}
+
+function onFileChange(event: Event) {
+  const target = event.target as HTMLInputElement
+  const files = target.files
+  uploadError.value = null
+
+  if (!files || files.length === 0) {
+    uploadFile.value = null
+    uploadFileName.value = ''
+    return
+  }
+
+  const file = files[0]
+  const isPdfByType = file.type === 'application/pdf'
+  const isPdfByName = file.name.toLowerCase().endsWith('.pdf')
+
+  if (!isPdfByType && !isPdfByName) {
+    uploadError.value = 'Only PDF files are allowed.'
+    uploadFile.value = null
+    uploadFileName.value = ''
+    target.value = ''
+    return
+  }
+
+  uploadFile.value = file
+  uploadFileName.value = file.name
+
+  // Do NOT force-fill name; leaving it empty is allowed.
+}
+
+/**
+ * Computed document name:
+ * - If user typed a name, use that.
+ * - Else, use the file name (without .pdf) if available.
+ * - Else, "Untitled".
+ */
+const computedDocumentName = computed(() => {
+  const trimmed = uploadName.value.trim()
+  if (trimmed) return trimmed
+
+  if (uploadFileName.value) {
+    return uploadFileName.value.replace(/\.pdf$/i, '')
+  }
+
+  return 'Untitled'
+})
+
+function addFileToCurrentFolder(item: Item) {
+  const last = path.value[path.value.length - 1]
+  if (!last) {
+    tree.value.push(item)
+    return
+  }
+
+  if (!last.children) {
+    // @ts-ignore - depending on Item definition this may be optional
+    last.children = []
+  }
+  last.children.push(item)
+}
+
+function submitUpload() {
+  uploadError.value = null
+
+  if (!uploadFile.value) {
+    uploadError.value = 'Please select a PDF file to upload.'
+    return
+  }
+
+  const isPdfByType = uploadFile.value.type === 'application/pdf'
+  const isPdfByName = uploadFile.value.name.toLowerCase().endsWith('.pdf')
+  if (!isPdfByType && !isPdfByName) {
+    uploadError.value = 'Only PDF files are allowed.'
+    return
+  }
+
+  const name = computedDocumentName.value
+
+  const newItem: Item = {
+    id: `uploaded-${Date.now()}`,
+    name: `${name}.pdf`,
+    type: 'file',
+    // @ts-ignore - size may or may not exist on Item, depending on your DTO
+    size: uploadFile.value.size,
+  }
+
+  // TODO: integrate with your upload API and persist metadata (tag/description)
+  console.log('Uploading PDF with metadata:', {
+    name,
+    tag: uploadTag.value,
+    description: uploadDescription.value,
+    file: uploadFile.value,
+  })
+
+  addFileToCurrentFolder(newItem)
+  closeUploadModal()
 }
 </script>
 
@@ -366,6 +500,165 @@ function iconFor(item: Item) {
           </section>
         </div>
       </main>
+    </div>
+
+    <!-- Floating upload button: big plus, bottom-right -->
+    <button
+        type="button"
+        aria-label="Upload PDF"
+        class="fixed bottom-6 right-6 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-neutral-900 text-neutral-50 border border-neutral-800 shadow-lg shadow-neutral-900/40 hover:bg-emerald-700 hover:border-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-50 dark:bg-neutral-100 dark:text-neutral-900 dark:border-neutral-300 dark:shadow-neutral-950/40 dark:hover:bg-emerald-500 dark:hover:border-emerald-400 dark:focus-visible:ring-offset-neutral-950 transition-all"
+        @click="triggerUpload"
+    >
+      <Plus class="w-6 h-6" aria-hidden="true" />
+    </button>
+
+    <!-- Upload modal -->
+    <div
+        v-if="isUploadModalOpen"
+        class="fixed inset-0 z-40 flex items-center justify-center px-4 py-6 bg-black/40 backdrop-blur-sm"
+    >
+      <div
+          class="w-full max-w-lg rounded-2xl border border-neutral-200 bg-white shadow-2xl shadow-neutral-900/30 dark:border-neutral-800 dark:bg-neutral-900"
+      >
+        <div
+            class="flex items-center justify-between border-b border-neutral-200 px-4 sm:px-6 py-3.5 bg-gradient-to-r from-neutral-50 via-white to-emerald-50/60 dark:border-neutral-800 dark:from-neutral-900 dark:via-neutral-900 dark:to-emerald-900/30 rounded-t-2xl"
+        >
+          <div class="flex items-center gap-2">
+            <div
+                class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-700/10 border border-emerald-700/40 dark:bg-emerald-500/10 dark:border-emerald-500/50"
+            >
+              <FileText class="w-4 h-4 text-emerald-800 dark:text-emerald-300" />
+            </div>
+            <div>
+              <p class="text-xs uppercase tracking-[0.16em] text-neutral-500 dark:text-neutral-400">
+                Upload PDF
+              </p>
+              <p class="text-sm font-medium text-neutral-900 dark:text-neutral-50">
+                Add a new document
+              </p>
+            </div>
+          </div>
+
+          <button
+              type="button"
+              class="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-neutral-200/70 text-neutral-500 hover:text-neutral-900 transition-colors dark:hover:bg-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-100"
+              @click="closeUploadModal"
+          >
+            <X class="w-4 h-4" aria-hidden="true" />
+          </button>
+        </div>
+
+        <div class="px-4 sm:px-6 py-4 space-y-4">
+          <div class="space-y-1.5">
+            <label class="block text-xs font-medium text-neutral-700 dark:text-neutral-200">
+              Name
+            </label>
+            <input
+                v-model="uploadName"
+                type="text"
+                placeholder="Proposal for Q2 Roadmap"
+                class="w-full rounded-xl border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50"
+            />
+            <p class="text-[11px] text-neutral-500 dark:text-neutral-400">
+              The document will be saved as
+              <span class="font-mono">{{ computedDocumentName }}.pdf</span>
+            </p>
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="block text-xs font-medium text-neutral-700 dark:text-neutral-200">
+              Tag
+            </label>
+            <input
+                v-model="uploadTag"
+                type="text"
+                placeholder="project-x, contract, finance"
+                class="w-full rounded-xl border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50"
+            />
+            <p class="text-[11px] text-neutral-500 dark:text-neutral-400">
+              Use tags to quickly filter and search later.
+            </p>
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="block text-xs font-medium text-neutral-700 dark:text-neutral-200">
+              Metadata / notes
+            </label>
+            <textarea
+                v-model="uploadDescription"
+                rows="3"
+                placeholder="Short description, relevant people, version info, etc."
+                class="w-full rounded-xl border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-50"
+            />
+          </div>
+
+          <div class="space-y-2">
+            <label class="block text-xs font-medium text-neutral-700 dark:text-neutral-200">
+              PDF file
+            </label>
+            <div
+                class="flex items-center justify-between rounded-xl border border-dashed border-neutral-300 bg-neutral-50 px-3 py-2.5 text-sm dark:border-neutral-700 dark:bg-neutral-900/70"
+            >
+              <div class="flex min-w-0 items-center gap-2">
+                <div
+                    class="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-900 text-neutral-50 dark:bg-neutral-200 dark:text-neutral-900"
+                >
+                  <FileText class="w-4 h-4" aria-hidden="true" />
+                </div>
+                <div class="min-w-0">
+                  <p class="truncate text-xs text-neutral-700 dark:text-neutral-100">
+                    {{ uploadFileName || 'No file selected' }}
+                  </p>
+                  <p class="text-[11px] text-neutral-500 dark:text-neutral-400">
+                    Only PDF files are supported.
+                  </p>
+                </div>
+              </div>
+              <button
+                  type="button"
+                  class="ml-3 inline-flex items-center rounded-full border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-800 hover:border-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 transition-colors dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:border-emerald-500 dark:hover:bg-emerald-950"
+                  @click="openFilePicker"
+              >
+                Choose file
+              </button>
+            </div>
+
+            <input
+                ref="fileInput"
+                type="file"
+                accept="application/pdf,.pdf"
+                class="hidden"
+                @change="onFileChange"
+            />
+
+            <p
+                v-if="uploadError"
+                class="text-xs text-red-600 dark:text-red-400"
+            >
+              {{ uploadError }}
+            </p>
+          </div>
+        </div>
+
+        <div
+            class="flex items-center justify-end gap-2 border-t border-neutral-200 px-4 sm:px-6 py-3.5 bg-neutral-50/80 dark:border-neutral-800 dark:bg-neutral-900/80 rounded-b-2xl"
+        >
+          <button
+              type="button"
+              class="inline-flex items-center justify-center rounded-full border border-neutral-300 bg-white px-3.5 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
+              @click="closeUploadModal"
+          >
+            Cancel
+          </button>
+          <button
+              type="button"
+              class="inline-flex items-center justify-center rounded-full bg-emerald-700 px-4 py-1.5 text-xs font-medium text-white shadow-sm shadow-emerald-900/30 hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 focus-visible:ring-offset-neutral-50 dark:focus-visible:ring-offset-neutral-900"
+              @click="submitUpload"
+          >
+            Upload PDF
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
