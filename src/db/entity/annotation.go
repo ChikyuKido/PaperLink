@@ -11,6 +11,7 @@ const (
 type Annotation struct {
 	ID         int `gorm:"primary_key;AUTO_INCREMENT"`
 	Type       AnnotationType
+	Data       string
 	CreatedAt  int64
 	UpdatedAt  int64
 	PositionX  float64
