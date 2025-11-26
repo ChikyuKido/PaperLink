@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import {computed, ref, watch} from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import {
   Sidebar,
@@ -15,7 +15,7 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarRail,
-  SidebarTrigger,
+  SidebarTrigger, useSidebar,
 } from '@/components/ui/sidebar'
 import {
   Home as HomeIcon,
@@ -23,10 +23,15 @@ import {
   Settings as SettingsIcon,
   Shield as AdminIcon,
 } from 'lucide-vue-next'
-
 const route = useRoute()
 
 const isAdmin = computed(() => true)
+const currentPath = computed(() => route.path)
+const forceClosed = computed(() => route.path === '/pdf')
+const userOpen = ref(true)
+const effectiveOpen = computed(() => {
+  return forceClosed.value ? false : userOpen.value
+})
 
 const menuItems = computed(() => {
   const base = [
@@ -46,12 +51,15 @@ function isActive(path: string) {
 </script>
 
 <template>
-  <SidebarProvider default-open>
+  <SidebarProvider :open="effectiveOpen" :key="forceClosed">
+
     <Sidebar
         collapsible="icon"
         class="border-r border-neutral-200 bg-neutral-50 text-neutral-900 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-50 [--sidebar-width-icon:56px]"
     >
-      <SidebarHeader class="px-3 pt-3 pb-2">
+      <SidebarHeader
+          class="px-3 pt-3 pb-2"
+      >
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
@@ -130,12 +138,16 @@ function isActive(path: string) {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter class="px-3 pb-3 pt-2">
+      <SidebarFooter
+          class="px-3 pb-3 pt-2"
+      >
         <div
             class="flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-[11px] text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400 group-has-[[data-collapsible=icon]]/sidebar-wrapper:hidden"
         >
           <span class="truncate">Self-hosted</span>
-          <span class="text-[10px] uppercase tracking-[0.16em] text-neutral-400 dark:text-neutral-500">
+          <span
+              class="text-[10px] uppercase tracking-[0.16em] text-neutral-400 dark:text-neutral-500"
+          >
             Paperlink
           </span>
         </div>
@@ -147,12 +159,15 @@ function isActive(path: string) {
     <SidebarInset class="bg-neutral-50 dark:bg-neutral-950">
       <div class="flex min-h-screen flex-col">
         <header
+            v-if="!forceClosed"
             class="flex h-12 shrink-0 items-center gap-2 border-b border-neutral-200 px-4 dark:border-neutral-800 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-10"
         >
           <SidebarTrigger
+              @click="userOpen = !userOpen"
               class="-ml-1 rounded-full border border-neutral-300 bg-white px-2 py-1 text-neutral-800 hover:border-neutral-400 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800 dark:hover:border-neutral-500"
           />
         </header>
+
         <main class="flex-1">
           <slot />
         </main>
