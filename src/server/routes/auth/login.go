@@ -2,14 +2,12 @@ package auth
 
 import (
 	"net/http"
-	"paperlink/db"
-	"paperlink/db/entity"
+	"paperlink/db/repo"
 	"paperlink/server/routes"
 	"paperlink/util"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
 )
 
 type LoginRequest struct {
@@ -36,28 +34,21 @@ func Login(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, routes.NewError(400, "invalid request body"))
 		return
 	}
-
-	var user entity.User
-	if err := db.DB.Where("name = ?", req.Username).First(&user).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusUnauthorized, routes.NewError(401, "wrong username or password"))
-			return
-		}
-		log.WithError(err).Error("failed to query user")
-		c.JSON(http.StatusInternalServerError, routes.NewError(500, "internal error"))
-		return
-	}
-
-	// Passwort prüfen
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
+	user, err := repo.User.GetUserByName(req.Username)
+	if err != nil {
+		log.Errorf("failed to query user: %v", err)
 		c.JSON(http.StatusUnauthorized, routes.NewError(401, "wrong username or password"))
 		return
 	}
 
-	// JWT erzeugen
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
+		c.JSON(http.StatusUnauthorized, routes.NewError(401, "wrong username or password"))
+		return
+	}
+
 	token, err := util.GenerateJWT(user.ID, user.Name)
 	if err != nil {
-		log.WithError(err).Error("failed to generate jwt")
+		log.Errorf("failed to generate jwt: %v", err)
 		c.JSON(http.StatusInternalServerError, routes.NewError(500, "failed to generate jwt"))
 		return
 	}
