@@ -13,6 +13,6 @@ func main() {
 	logrus.SetFormatter(&util.GroupFormatter{})
 	logrus.SetLevel(logrus.InfoLevel)
 
-	db.Init()
+	db.DB()
 	server.Start()
 }

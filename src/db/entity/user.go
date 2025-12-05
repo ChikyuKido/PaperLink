@@ -1,8 +1,8 @@
 package entity
 
 type User struct {
-	ID           int    `gorm:"primaryKey;autoIncrement"`
-	Name         string `gorm:"uniqueIndex"`
-	PasswordHash string
-	IsAdmin      bool
+	ID       int    `gorm:"primary_key;autoIncrement"`
+	Name     string `gorm:"unique;not null"`
+	Password string
+	IsAdmin  bool
 }
