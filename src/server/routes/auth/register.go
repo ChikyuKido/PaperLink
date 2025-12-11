@@ -56,12 +56,12 @@ func Register(c *gin.Context) {
 	}
 
 	user := entity.User{
-		Name:     req.Username,
+		Username: req.Username,
 		Password: string(hash),
 		IsAdmin:  false,
 	}
 
-	if err := repo.User.Save(&user).Error; err != nil {
+	if err := repo.User.Save(&user); err != nil {
 		log.Errorf("failed to create user: %v", err)
 		c.JSON(http.StatusInternalServerError, routes.NewError(500, "failed to create user"))
 		return
