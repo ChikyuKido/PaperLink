@@ -12,7 +12,6 @@ var log = util.GroupLog("SERVER")
 
 func Start() {
 	r := gin.Default()
-
 	auth.InitAuthRouter(r)
 	pdf.InitPDFRouter(r)
 	log.Info("starting server at port 8080")
