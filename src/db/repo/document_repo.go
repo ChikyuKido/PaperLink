@@ -12,7 +12,7 @@ func newDocumentRepo() *DocumentRepo {
 	return &DocumentRepo{NewRepository[entity.Document]()}
 }
 
-var DocumentAction = newDocumentRepo()
+var Document = newDocumentRepo()
 
 func (n *DocumentRepo) GetAnnotationsById(documentID int) ([]entity.Annotation, error) {
 	var annotations []entity.Annotation

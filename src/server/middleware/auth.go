@@ -19,6 +19,7 @@ func Auth(c *gin.Context) {
 	claims, err := util.ParseJWT(token)
 	if err != nil || claims == nil {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, routes.NewError(http.StatusUnauthorized, "token invalid"))
+		return
 	}
 
 	c.Set("userId", claims.UserID)

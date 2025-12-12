@@ -9,5 +9,5 @@ import (
 func InitDocumentRouter(r *gin.Engine) {
 	group := r.Group("/api/v1/document")
 	group.Use(middleware.Auth)
-	//group.GET("/:id/:page", GetPage())
+	group.POST("/create", Create)
 }
