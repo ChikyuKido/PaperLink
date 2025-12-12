@@ -3,6 +3,7 @@ import HomeView from '@/views/Home.vue';
 import Search from "@/views/Search.vue";
 import Settings from "@/views/Settings.vue";
 import PDFReader from "@/views/PDFReader.vue";
+import Auth from "@/views/Auth.vue";
 
 const routes = [
     {
@@ -24,6 +25,11 @@ const routes = [
         path: '/pdf',
         name: 'PDF',
         component: PDFReader,
+    },
+    {
+        path: '/auth',
+        name: 'Auth',
+        component: Auth,
     },
 
 
