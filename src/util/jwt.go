@@ -2,14 +2,13 @@ package util
 
 import (
 	"errors"
-	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
 var (
-	jwtSecret = []byte(os.Getenv("JWT_SECRET"))
+	jwtSecret = []byte("JWT_SECRET")
 )
 
 type UserClaims struct {
@@ -19,10 +18,6 @@ type UserClaims struct {
 }
 
 func GenerateJWT(userID int, name string) (string, error) {
-	if len(jwtSecret) < 32 {
-		return "", errors.New("insecure JWT secret")
-	}
-
 	now := time.Now()
 
 	claims := UserClaims{
@@ -47,9 +42,6 @@ func ParseJWT(tokenStr string) (*UserClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenStr, &UserClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("unexpected signing method")
-		}
-		if len(jwtSecret) < 32 {
-			return nil, errors.New("insecure JWT secret")
 		}
 		return jwtSecret, nil
 	})
