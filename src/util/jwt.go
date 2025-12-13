@@ -12,17 +12,19 @@ var (
 )
 
 type UserClaims struct {
-	UserID int    `json:"user_id"`
+	UserID int    `json:"userId"`
 	Name   string `json:"name"`
+	Type   string `json:"type"`
 	jwt.RegisteredClaims
 }
 
-func GenerateJWT(userID int, name string) (string, error) {
+func GenerateJWT(userID int, name string) (string, string, error) {
 	now := time.Now()
 
-	claims := UserClaims{
+	accessClaims := UserClaims{
 		UserID: userID,
 		Name:   name,
+		Type:   "access",
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(15 * time.Minute)),
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -30,15 +32,33 @@ func GenerateJWT(userID int, name string) (string, error) {
 		},
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(jwtSecret)
+	refreshClaims := UserClaims{
+		UserID: userID,
+		Name:   name,
+		Type:   "refresh",
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(now.Add(30 * 24 * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now),
+		},
+	}
+
+	accessToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims).
+		SignedString(jwtSecret)
+	if err != nil {
+		return "", "", err
+	}
+
+	refreshToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims).
+		SignedString(jwtSecret)
+	if err != nil {
+		return "", "", err
+	}
+
+	return accessToken, refreshToken, nil
 }
 
 func ParseJWT(tokenStr string) (*UserClaims, error) {
-	if len(tokenStr) < 32 {
-		return nil, errors.New("token too short")
-	}
-
 	token, err := jwt.ParseWithClaims(tokenStr, &UserClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("unexpected signing method")
@@ -55,4 +75,30 @@ func ParseJWT(tokenStr string) (*UserClaims, error) {
 	}
 
 	return claims, nil
+}
+
+func RefreshAccessToken(refreshToken string) (string, error) {
+	claims, err := ParseJWT(refreshToken)
+	if err != nil {
+		return "", err
+	}
+
+	if claims.Type != "refresh" {
+		return "", errors.New("not a refresh token")
+	}
+
+	now := time.Now()
+	newAccessClaims := UserClaims{
+		UserID: claims.UserID,
+		Name:   claims.Name,
+		Type:   "access",
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(now.Add(15 * time.Minute)),
+			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now),
+		},
+	}
+
+	return jwt.NewWithClaims(jwt.SigningMethodHS256, newAccessClaims).
+		SignedString(jwtSecret)
 }

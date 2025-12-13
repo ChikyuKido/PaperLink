@@ -22,5 +22,13 @@ func Auth(c *gin.Context) {
 		return
 	}
 
+	if claims.Type != "access" {
+		c.AbortWithStatusJSON(
+			http.StatusUnauthorized,
+			routes.NewError(http.StatusUnauthorized, "invalid token type"),
+		)
+		return
+	}
 	c.Set("userId", claims.UserID)
+	c.Next()
 }
