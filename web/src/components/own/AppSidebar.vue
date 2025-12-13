@@ -23,14 +23,21 @@ import {
   Settings as SettingsIcon,
   Shield as AdminIcon,
 } from 'lucide-vue-next'
+import { SIDEBAR_ROUTE_RULES } from '@/router/route_config.ts'
 const route = useRoute()
+const userOpen = ref(true)
+const sidebarRule = computed(
+    () => SIDEBAR_ROUTE_RULES[route.path]
+)
 
 const isAdmin = computed(() => true)
-const currentPath = computed(() => route.path)
-const forceClosed = computed(() => route.path === '/pdf')
-const userOpen = ref(true)
+const forceClosed = computed(
+    () => sidebarRule.value?.forceClosed === true
+)
+
 const effectiveOpen = computed(() => {
-  return forceClosed.value ? false : userOpen.value
+  if (forceClosed.value) return false
+  return userOpen.value
 })
 
 const menuItems = computed(() => {
