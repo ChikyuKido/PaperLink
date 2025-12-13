@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from "vue"
+import {ref, computed, watch} from "vue"
 import { useRouter } from "vue-router"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -12,6 +12,7 @@ type Tab = "login" | "register" | "external"
 
 const router = useRouter()
 const activeTab = ref<Tab>("login")
+
 
 const errorMessage = ref("")
 const successMessage = ref("")
@@ -41,11 +42,13 @@ function onRegisterSuccess() {
   successMessage.value = "Account created. You can now sign in."
   activeTab.value = "login"
 }
+watch(activeTab, () => {
+  clear()
+})
 </script>
 
 <template>
   <div class="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-neutral-950 text-neutral-50">
-    <!-- LEFT BRAND PANEL -->
     <div
         class="hidden lg:flex flex-col justify-center px-20
              bg-neutral-950 border-r border-neutral-800"
@@ -56,7 +59,6 @@ function onRegisterSuccess() {
       </p>
     </div>
 
-    <!-- RIGHT AUTH PANEL -->
     <div class="flex items-center justify-center px-6">
       <div
           class="w-full max-w-2xl rounded-2xl border border-neutral-800
@@ -64,7 +66,6 @@ function onRegisterSuccess() {
                ring-1 ring-emerald-500/10"
       >
         <Tabs v-model="activeTab" class="w-full">
-          <!-- Full-width selector -->
           <div class="p-5 pb-4">
             <TabsList
                 class="grid w-full grid-cols-3 rounded-xl bg-neutral-800/60 p-1"
@@ -113,13 +114,11 @@ function onRegisterSuccess() {
             </TabsList>
           </div>
 
-          <!-- Content -->
           <div class="px-10 pb-10 pt-6">
             <h2 class="text-2xl font-semibold tracking-tight">
               {{ title }}
             </h2>
 
-            <!-- Emerald accent divider -->
             <div class="mt-3 mb-4 h-px w-12 bg-emerald-500/60 rounded-full" />
 
             <p class="text-sm text-neutral-400">
@@ -139,7 +138,6 @@ function onRegisterSuccess() {
               </Alert>
             </div>
 
-            <!-- Forms -->
             <div class="mt-8">
               <TabsContent value="login">
                 <LoginForm

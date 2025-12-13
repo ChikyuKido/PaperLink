@@ -12,4 +12,5 @@ func InitAuthRouter(r *gin.Engine) {
 	group := r.Group("/api/v1/auth")
 	group.POST("/register", Register)
 	group.POST("/login", Login)
+	group.POST("/refresh", Refresh)
 }

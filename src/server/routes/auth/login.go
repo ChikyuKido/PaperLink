@@ -46,14 +46,23 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	token, err := util.GenerateJWT(user.ID, user.Username)
+	access, refresh, err := util.GenerateJWT(user.ID, user.Username)
 	if err != nil {
 		log.Errorf("failed to generate jwt: %v", err)
 		c.JSON(http.StatusInternalServerError, routes.NewError(500, "failed to generate jwt"))
 		return
 	}
 
+	c.SetCookie(
+		"refresh",
+		refresh,
+		60*60*24*30,
+		"/api/v1/auth/refresh",
+		"",
+		false,
+		true,
+	)
 	c.JSON(http.StatusOK, routes.NewSuccess(gin.H{
-		"jwt": token,
+		"access": access,
 	}))
 }

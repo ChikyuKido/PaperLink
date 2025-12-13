@@ -1,9 +1,18 @@
 import { createApp } from 'vue';
 import App from './App.vue';
-import router from '@/router/router.ts';
 import '@/style.css';
+import {refreshAccessToken} from "@/auth/refresh.ts";
+import router from "@/router/router.ts";
+async function bootstrap() {
+    try {
+        await refreshAccessToken()
+    } catch {
+        await router.push("/auth")
+    }
 
-const app = createApp(App);
+    const app = createApp(App)
+    app.use(router)
+    app.mount("#app")
+}
 
-app.use(router);
-app.mount('#app');
+await bootstrap()
