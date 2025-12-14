@@ -16,6 +16,7 @@ type CreateRequest struct {
 	Description string   `json:"description"`
 	Path        string   `json:"path"`
 	Tags        []string `json:"tags"`
+	FileUUID    string   `json:"fileUUID"`
 }
 
 func Create(c *gin.Context) {
@@ -31,6 +32,7 @@ func Create(c *gin.Context) {
 		Description: req.Description,
 		Path:        req.Path,
 		OwnerID:     c.GetInt("userId"),
+		FileUUID:    req.FileUUID,
 	}
 
 	if len(req.Tags) > 0 {
