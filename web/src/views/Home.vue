@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { ComponentPublicInstance } from 'vue'
-import type HomeExplorer from '@/components/own/home/HomeExplorer.vue'
 import UploadPdfModal from '@/components/own/home/UploadPdfModal.vue'
 import FloatingUploadButton from '@/components/own/home/FloatingUploadButton.vue'
 import HomeExplorerComponent from '@/components/own/home/HomeExplorer.vue'
