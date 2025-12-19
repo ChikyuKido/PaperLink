@@ -34,6 +34,6 @@ func (n *UserRepo) GetUserByName(name string) (*entity.User, error) {
 
 func (n *DocumentRepo) GetOwnedDocuments(userId int) ([]entity.Document, error) {
 	var documents []entity.Document
-	err := n.db.Where("OwnerID = ?", userId).Find(&documents).Error
+	err := n.db.Where("UserID = ?", userId).Find(&documents).Error
 	return documents, err
 }

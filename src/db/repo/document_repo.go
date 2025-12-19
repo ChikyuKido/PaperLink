@@ -19,3 +19,9 @@ func (n *DocumentRepo) GetAnnotationsById(documentID int) ([]entity.Annotation, 
 	err := n.db.Where("ID = ?", documentID).Find(&annotations).Error
 	return annotations, err
 }
+
+func (r *DocumentRepo) GetAllByUserId(userId int) ([]entity.Document, error) {
+	var result []entity.Document
+	err := r.db.Where("user_id = ?", userId).Find(&result).Error
+	return result, err
+}
