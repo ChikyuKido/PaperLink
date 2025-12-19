@@ -4,11 +4,11 @@ export type SidebarRouteRule = {
 }
 
 export const SIDEBAR_ROUTE_RULES: Record<string, SidebarRouteRule> = {
-    '/pdf': {
+    PDF: {
         hide: false,
         forceClosed: true,
     },
-    '/auth': {
+    Auth: {
         hide: true,
         forceClosed: true,
     },

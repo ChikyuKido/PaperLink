@@ -44,7 +44,7 @@ func GetPage(c *gin.Context) {
 		return
 	}
 
-	file := doc.FileDocument
+	file := doc.File
 
 	var from, to int
 

@@ -27,7 +27,7 @@ import { SIDEBAR_ROUTE_RULES } from '@/router/route_config.ts'
 const route = useRoute()
 const userOpen = ref(true)
 const sidebarRule = computed(
-    () => SIDEBAR_ROUTE_RULES[route.path]
+    () => SIDEBAR_ROUTE_RULES[route.name]
 )
 
 const isAdmin = computed(() => true)

@@ -87,7 +87,7 @@ func mapDocuments(docs []entity.Document) []FileNode {
 		files = append(files, FileNode{
 			ID:   d.UUID,
 			Name: d.Name,
-			Size: d.FileDocument.Size,
+			Size: d.File.Size,
 		})
 	}
 

@@ -22,7 +22,7 @@ const routes = [
         component: Settings,
     },
     {
-        path: '/pdf',
+        path: '/pdf/:id',
         name: 'PDF',
         component: PDFReader,
     },

@@ -174,9 +174,15 @@ import {
 
 import * as pdfjsLib from "pdfjs-dist/build/pdf.mjs"
 import pdfWorker from "pdfjs-dist/build/pdf.worker.mjs?worker"
+import { useRoute} from 'vue-router';
+import {apiFetch} from "@/auth/api.ts";
 pdfjsLib.GlobalWorkerOptions.workerPort = new pdfWorker()
 
 const pageCount = 280
+
+
+const route = useRoute()
+const pdfID = route.params.id
 
 const pages = reactive<Record<number, string>>({})
 const thumbs = reactive<Record<number, string>>({})
@@ -204,7 +210,7 @@ async function fetchPage(n: number) {
   fetchLocks[n] = true
 
   try {
-    const res = await fetch(`/api/v1/pdf/test/${n}`)
+    const res = await apiFetch(`/api/v1/pdf/${pdfID}/${n}`)
     if (!res.ok) return
     const buf = await res.arrayBuffer()
     const fixed = buf.slice(1)
