@@ -14,7 +14,7 @@ import (
 type CreateRequest struct {
 	Name        string   `json:"name"`
 	Description string   `json:"description"`
-	Path        string   `json:"path"`
+	DirectoryID *int     `json:"directoryId"`
 	Tags        []string `json:"tags"`
 	FileUUID    string   `json:"fileUUID"`
 }
@@ -26,13 +26,22 @@ func Create(c *gin.Context) {
 		return
 	}
 
+	userID := c.GetInt("userId")
+
+	if req.DirectoryID != nil {
+		if _, err := repo.Directory.Get(*req.DirectoryID); err != nil {
+			c.JSON(http.StatusBadRequest, routes.NewError(http.StatusBadRequest, "invalid directory"))
+			return
+		}
+	}
+
 	doc := entity.Document{
 		UUID:        uuid.New().String(),
 		Name:        req.Name,
 		Description: req.Description,
-		Path:        req.Path,
-		OwnerID:     c.GetInt("userId"),
+		UserID:      userID,
 		FileUUID:    req.FileUUID,
+		DirectoryID: req.DirectoryID,
 	}
 
 	if len(req.Tags) > 0 {
@@ -55,7 +64,11 @@ func Create(c *gin.Context) {
 				continue
 			}
 
-			newTag := entity.Tag{Name: name, Color: entity.TagColors[rand.Intn(len(entity.TagColors))]}
+			newTag := entity.Tag{
+				Name:  name,
+				Color: entity.TagColors[rand.Intn(len(entity.TagColors))],
+			}
+
 			if err := repo.Tag.Save(&newTag); err != nil {
 				c.JSON(http.StatusInternalServerError, routes.NewError(http.StatusInternalServerError, err.Error()))
 				return
@@ -73,5 +86,5 @@ func Create(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, doc)
+	c.JSON(http.StatusOK, routes.NewSuccess(gin.H{"msg": "ok"}))
 }

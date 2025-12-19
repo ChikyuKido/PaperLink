@@ -2,9 +2,11 @@ package server
 
 import (
 	"paperlink/server/routes/auth"
+	"paperlink/server/routes/directory"
 	"paperlink/server/routes/document"
 	"paperlink/server/routes/invite"
 	"paperlink/server/routes/pdf"
+	"paperlink/server/routes/structure"
 	"paperlink/util"
 
 	"github.com/gin-gonic/gin"
@@ -18,6 +20,8 @@ func Start() {
 	pdf.InitPDFRouter(r)
 	document.InitDocumentRouter(r)
 	invite.InitInviteRouter(r)
+	directory.InitDirectoryRouter(r)
+	structure.InitStructureRoutes(r)
 	log.Info("starting server at port 8080")
 	err := r.Run(":8080")
 	if err != nil {

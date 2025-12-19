@@ -29,8 +29,10 @@ func DB() *gorm.DB {
 		instance, err = gorm.Open(sqlite.Open("./data/app.db"), &gorm.Config{
 			Logger: logger.Default.LogMode(logger.Silent),
 		})
-		instance.Exec("PRAGMA cache_size = -10240;")
-		instance.Exec("PRAGMA foreign_keys = ON")
+		if err != nil {
+			log.Fatalf("Error connecting to the database: %v", err)
+		}
+		err = ApplySQLiteConfig(instance)
 		if err != nil {
 			log.Fatalf("Error connecting to the database: %v", err)
 		}
@@ -47,4 +49,21 @@ func DB() *gorm.DB {
 	})
 
 	return instance
+}
+func ApplySQLiteConfig(instance *gorm.DB) error {
+	pragmas := []string{
+		"PRAGMA journal_mode = WAL;",
+		"PRAGMA synchronous = NORMAL;",
+		"PRAGMA cache_size = -10240;",
+		"PRAGMA temp_store = MEMORY;",
+		"PRAGMA foreign_keys = ON;",
+		"PRAGMA wal_autocheckpoint = 1000;",
+	}
+
+	for _, p := range pragmas {
+		if err := instance.Exec(p).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }

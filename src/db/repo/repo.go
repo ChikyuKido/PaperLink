@@ -40,7 +40,7 @@ func (r *Repository[T]) GetList() ([]T, error) {
 	return entities, nil
 }
 
-func (r *Repository[T]) Delete(id uint) error {
+func (r *Repository[T]) Delete(id int) error {
 	var entity T
 	return r.db.Delete(&entity, id).Error
 }
