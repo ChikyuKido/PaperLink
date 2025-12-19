@@ -32,5 +32,5 @@ func Create(c *gin.Context) {
 		return
 	}
 
-	c.JSON(201, routes.NewSuccess(gin.H{"msg": "ok"}))
+	c.JSON(201, routes.NewSuccess(gin.H{"id": dir.ID}))
 }

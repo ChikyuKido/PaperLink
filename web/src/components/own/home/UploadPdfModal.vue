@@ -12,8 +12,18 @@ import {
 import { Button } from '@/components/ui/button'
 import { apiFetch } from '@/auth/api'
 
-const props = defineProps<{ open: boolean }>()
-const emit = defineEmits<{ (e: 'close'): void }>()
+type SubmitPayload = {
+  name: string
+  description: string
+  tags: string[]
+  fileUUID: string
+  directoryId: number | null
+  folderPath: string
+}
+
+const props = defineProps<{ open: boolean; directoryId: number | null; folderPath?: string }>()
+
+const emit = defineEmits<{ (e: 'close'): void; (e: 'submit', payload: SubmitPayload): void }>()
 
 const fileInput = ref<HTMLInputElement | null>(null)
 
@@ -23,7 +33,6 @@ const fileUUID = ref<string | null>(null)
 
 const name = ref('')
 const description = ref('')
-const path = ref('')
 const tagsRaw = ref('')
 
 const uploading = ref(false)
@@ -36,7 +45,6 @@ watch(() => props.open, (open) => {
   fileUUID.value = null
   name.value = ''
   description.value = ''
-  path.value = ''
   tagsRaw.value = ''
   error.value = null
   uploading.value = false
@@ -66,12 +74,12 @@ async function onFileChange(e: Event) {
   await upload(selected)
 }
 
-async function upload(file: File) {
+async function upload(selectedFile: File) {
   uploading.value = true
 
   try {
     const formData = new FormData()
-    formData.append('file', file)
+    formData.append('file', selectedFile)
 
     const res = await apiFetch('/api/v1/document/upload', {
       method: 'POST',
@@ -80,7 +88,11 @@ async function upload(file: File) {
 
     const json = await res.json()
     if (!res.ok || json?.code !== 200 || !json?.data?.id) {
-      throw new Error()
+      error.value = 'Failed to upload file.'
+      file.value = null
+      fileName.value = ''
+      fileUUID.value = null
+      return
     }
 
     fileUUID.value = json.data.id
@@ -113,7 +125,8 @@ async function save() {
     const payload = {
       name: documentName.value,
       description: description.value,
-      path: path.value,
+      directoryId: props.directoryId ?? null,
+      folderPath: props.folderPath ?? '',
       tags: tagsRaw.value.split(',').map(t => t.trim()).filter(Boolean),
       fileUUID: fileUUID.value,
     }
@@ -123,7 +136,20 @@ async function save() {
       body: JSON.stringify(payload),
     })
 
-    if (!res.ok) throw new Error()
+    if (!res.ok) {
+      error.value = 'Failed to create document.'
+      return
+    }
+
+    emit('submit', {
+      name: payload.name,
+      description: payload.description,
+      tags: payload.tags,
+      fileUUID: payload.fileUUID,
+      directoryId: payload.directoryId,
+      folderPath: payload.folderPath,
+    })
+
     emit('close')
   } catch {
     error.value = 'Failed to create document.'
@@ -135,67 +161,100 @@ async function save() {
 
 <template>
   <Dialog :open="open" @update:open="close">
-    <DialogContent class="max-w-lg rounded-2xl">
+    <DialogContent class="max-w-lg rounded-2xl border-neutral-200 dark:border-neutral-800">
       <DialogHeader>
-        <DialogTitle>Upload PDF</DialogTitle>
-        <DialogDescription>File uploads immediately. Metadata is saved after.</DialogDescription>
+        <div class="flex items-start gap-3">
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-600/30 bg-emerald-600/10 text-emerald-800 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-200">
+            <FileText class="h-5 w-5" aria-hidden="true" />
+          </div>
+          <div class="min-w-0">
+            <DialogTitle class="leading-tight">Create document</DialogTitle>
+            <DialogDescription class="mt-0.5">
+              Upload a PDF and save it <span class="font-medium text-neutral-900 dark:text-neutral-50">{{ (folderPath ?? '').length ? folderPath : 'Home' }}</span>.
+            </DialogDescription>
+          </div>
+        </div>
       </DialogHeader>
 
-      <div class="space-y-4">
-        <div>
-          <label class="text-xs font-medium">PDF file</label>
-          <div class="flex items-center justify-between rounded-xl border border-dashed px-3 py-2">
-            <div class="flex items-center gap-2 min-w-0">
-              <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-900 text-white">
+      <div class="space-y-5">
+        <div class="space-y-1.5">
+          <label class="text-xs font-medium text-neutral-700 dark:text-neutral-200">PDF file</label>
+          <div class="flex items-center justify-between gap-3 rounded-xl border border-dashed border-neutral-300 bg-neutral-50/60 px-3 py-2.5 dark:border-neutral-700 dark:bg-neutral-950/40">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-900 text-white ring-1 ring-neutral-900/10 dark:bg-neutral-100 dark:text-neutral-900">
                 <Loader2 v-if="uploading" class="h-4 w-4 animate-spin" />
                 <FileText v-else class="h-4 w-4" />
               </div>
-              <p class="truncate text-xs">
-                {{ fileName || 'No file selected' }}
-              </p>
+              <div class="min-w-0">
+                <p class="truncate text-sm font-medium">{{ fileName || 'No file selected' }}</p>
+                <p class="truncate text-xs text-neutral-500 dark:text-neutral-400">
+                  {{ fileUUID ? 'Uploaded — ready to save' : 'Choose a PDF to upload' }}
+                </p>
+              </div>
             </div>
-            <Button size="sm" variant="outline" :disabled="uploading" @click="pickFile">
-              Choose file
+
+            <Button size="sm" variant="outline" class="rounded-xl" :disabled="uploading" @click="pickFile">
+              Choose
             </Button>
           </div>
 
           <input
-              ref="fileInput"
-              type="file"
-              accept=".pdf"
-              class="hidden"
-              @change="onFileChange"
+            ref="fileInput"
+            type="file"
+            accept=".pdf"
+            class="hidden"
+            @change="onFileChange"
           />
         </div>
 
-        <div>
-          <label class="text-xs font-medium">Name</label>
-          <input v-model="name" :disabled="uploading" class="w-full rounded-xl border px-3 py-2 text-sm" />
+        <div class="grid grid-cols-1 gap-4">
+          <div class="space-y-1.5">
+            <label class="text-xs font-medium text-neutral-700 dark:text-neutral-200">Name</label>
+            <input
+              v-model="name"
+              :disabled="uploading"
+              class="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-neutral-800 dark:bg-neutral-950 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
+              placeholder="e.g. Contract 2025"
+            />
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-xs font-medium text-neutral-700 dark:text-neutral-200">Description</label>
+            <textarea
+              v-model="description"
+              rows="3"
+              :disabled="uploading"
+              class="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-neutral-800 dark:bg-neutral-950 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
+              placeholder="Optional: a short description"
+            />
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-xs font-medium text-neutral-700 dark:text-neutral-200">Tags</label>
+            <input
+              v-model="tagsRaw"
+              :disabled="uploading"
+              class="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm shadow-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-neutral-800 dark:bg-neutral-950 dark:focus:border-emerald-400 dark:focus:ring-emerald-400/20"
+              placeholder="Comma-separated (e.g. finance, 2025)"
+            />
+          </div>
         </div>
 
-        <div>
-          <label class="text-xs font-medium">Description</label>
-          <textarea v-model="description" rows="3" :disabled="uploading" class="w-full rounded-xl border px-3 py-2 text-sm" />
-        </div>
-
-        <div>
-          <label class="text-xs font-medium">Path</label>
-          <input v-model="path" :disabled="uploading" class="w-full rounded-xl border px-3 py-2 text-sm" />
-        </div>
-
-        <div>
-          <label class="text-xs font-medium">Tags</label>
-          <input v-model="tagsRaw" :disabled="uploading" class="w-full rounded-xl border px-3 py-2 text-sm" />
-        </div>
-
-        <p v-if="error" class="text-xs text-red-600">{{ error }}</p>
+        <p v-if="error" class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200">
+          {{ error }}
+        </p>
       </div>
 
-      <DialogFooter>
-        <Button variant="outline" size="sm" :disabled="uploading" @click="emit('close')">
+      <DialogFooter class="gap-2">
+        <Button variant="outline" size="sm" :disabled="uploading" class="rounded-xl" @click="emit('close')">
           Cancel
         </Button>
-        <Button size="sm" :disabled="uploading || !fileUUID" @click="save">
+        <Button
+          size="sm"
+          :disabled="uploading || !fileUUID"
+          class="rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-400"
+          @click="save"
+        >
           Save document
         </Button>
       </DialogFooter>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import {
   Folder,
   FileText,
@@ -24,8 +24,30 @@ import {
   TooltipContent,
 } from '@/components/ui/tooltip'
 import CardWithoutBorder from '@/components/own/CardWithoutBorder.vue'
-
 import type { Item } from '@/dto/item'
+import { apiFetch } from '@/auth/api'
+
+// --- Backend structure DTOs
+type ApiFileNode = { id: string; name: string; size: number }
+type ApiDirNode = { id: number; name: string; files: ApiFileNode[]; directories: ApiDirNode[] }
+
+function mapDirNodeToItems(node: ApiDirNode): Item[] {
+  const dirs: Item[] = (node.directories ?? []).map(d => ({
+    id: String(d.id),
+    name: d.name,
+    type: 'folder',
+    children: mapDirNodeToItems(d),
+  }))
+
+  const files: Item[] = (node.files ?? []).map(f => ({
+    id: f.id,
+    name: f.name.endsWith('.pdf') ? f.name : `${f.name}.pdf`,
+    type: 'file',
+    size: f.size,
+  }))
+
+  return [...dirs, ...files]
+}
 
 function formatBytes(bytes: number): string {
   if (!bytes || bytes <= 0) return '0 B'
@@ -40,47 +62,40 @@ function formatBytes(bytes: number): string {
   return `${value.toFixed(decimals)} ${units[idx]}`
 }
 
-const initialTree: Item[] = [
-  {
-    id: '1',
-    name: 'Projects',
-    type: 'folder',
-    children: [
-      { id: '1-1', name: 'Proposal.pdf', type: 'file', size: 320_000 },
-      {
-        id: '1-2',
-        name: 'Specs',
-        type: 'folder',
-        children: [
-          { id: '1-2-1', name: 'Architecture.pdf', type: 'file', size: 2_400_000 },
-        ],
-      },
-    ],
-  },
-  {
-    id: '2',
-    name: 'Invoices',
-    type: 'folder',
-    children: [
-      { id: '2-1', name: 'Invoice-2025.pdf', type: 'file', size: 180_000 },
-    ],
-  },
-  { id: '3', name: 'Readme.pdf', type: 'file', size: 64_000 },
-]
-
-type UploadPayload = {
-  name: string
-  tag: string
-  description: string
-  file: File
-  createdAt: string | null
-  modifiedAt: string | null
-}
-
-const tree = ref<Item[]>(initialTree)
+const tree = ref<Item[]>([])
 const path = ref<Item[]>([])
 const history = ref<Item[][]>([[]])
 const historyIndex = ref(0)
+
+const loading = ref(false)
+const loadError = ref<string | null>(null)
+
+async function loadTree() {
+  loading.value = true
+  loadError.value = null
+  try {
+    const res = await apiFetch('/api/v1/structure/tree', { method: 'GET' })
+    const json = await res.json().catch(() => null)
+
+    if (!res.ok || !json?.data) {
+      loadError.value = json?.message || 'Failed to load documents.'
+      tree.value = []
+      return
+    }
+
+    const root = json.data as ApiDirNode
+    tree.value = mapDirNodeToItems(root)
+  } catch {
+    loadError.value = 'Failed to load documents.'
+    tree.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  void loadTree()
+})
 
 const currentItems = computed(() => {
   const last = path.value[path.value.length - 1]
@@ -162,13 +177,15 @@ function goHome() {
 function goBack() {
   if (historyIndex.value === 0) return
   historyIndex.value--
-  path.value = history.value[historyIndex.value]
+  const next = history.value[historyIndex.value]
+  if (next) path.value = next
 }
 
 function goForward() {
-  if (historyIndex.value >= history.length - 1) return
+  if (historyIndex.value >= history.value.length - 1) return
   historyIndex.value++
-  path.value = history.value[historyIndex.value]
+  const next = history.value[historyIndex.value]
+  if (next) path.value = next
 }
 
 function openFile(item: Item) {
@@ -185,6 +202,12 @@ function handleItemClick(item: Item) {
 
 function iconFor(item: Item) {
   return item.type === 'folder' ? Folder : FileText
+}
+
+// Local payload type for optimistic addUploadedFile (used by Home.vue)
+type UploadPayload = {
+  name: string
+  file: File
 }
 
 function addUploadedFile(payload: UploadPayload) {
@@ -206,8 +229,52 @@ function addUploadedFile(payload: UploadPayload) {
   }
 }
 
+function addCreatedDirectory(name: string, id?: string) {
+  const newItem: Item = {
+    id: id ?? `dir-${Date.now()}`,
+    name,
+    type: 'folder',
+    children: [],
+  }
+
+  const last = path.value[path.value.length - 1]
+  if (!last) {
+    tree.value.push(newItem)
+  } else {
+    if (!last.children) (last as any).children = []
+    last.children!.push(newItem)
+  }
+}
+
+function addCreatedDocument(name: string, fileUUID?: string, size?: number) {
+  const newItem: Item = {
+    id: fileUUID ?? `doc-${Date.now()}`,
+    name: name.endsWith('.pdf') ? name : `${name}.pdf`,
+    type: 'file',
+    size: size,
+  }
+
+  const last = path.value[path.value.length - 1]
+  if (!last) {
+    tree.value.push(newItem)
+  } else {
+    if (!last.children) (last as any).children = []
+    last.children!.push(newItem)
+  }
+}
+
 defineExpose({
   addUploadedFile,
+  addCreatedDirectory,
+  addCreatedDocument,
+  reload: loadTree,
+  getCurrentDirectoryId: () => {
+    const last = path.value[path.value.length - 1]
+    if (!last) return null
+    const n = Number(last.id)
+    return Number.isFinite(n) ? n : null
+  },
+  getCurrentFolderPath: () => path.value.map(p => p.name).join('/'),
 })
 </script>
 
@@ -363,7 +430,15 @@ defineExpose({
             </div>
 
             <div class="px-4 sm:px-6 py-5 sm:py-6">
-              <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
+              <div v-if="loadError" class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200">
+                {{ loadError }}
+              </div>
+
+              <div v-if="loading" class="py-10 text-center text-sm text-neutral-500 dark:text-neutral-400">
+                Loading...
+              </div>
+
+              <div v-else class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
                 <CardWithoutBorder
                     v-for="item in currentItems"
                     :key="item.id"
