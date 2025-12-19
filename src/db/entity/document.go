@@ -6,7 +6,8 @@ type Document struct {
 	FileUUID    string `gorm:"foreignKey:FileDocumentUUID"`
 	Name        string
 	Description string
-	Path        string
+	DirectoryID *int
+	Directory   *Directory `gorm:"foreignKey:DirectoryID;references:ID;constraint:OnDelete:CASCADE"`
 	Owner       User
 	OwnerID     int
 	Tags        []Tag `gorm:"many2many:document_tags"`
