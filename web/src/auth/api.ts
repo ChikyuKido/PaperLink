@@ -19,8 +19,11 @@ export async function apiFetch(
     })
 
     if (response.status === 403) {
-        await router.push("/")
-        throw new Error("Forbidden")
+        try {
+            await router.push("/auth")
+        } catch {
+        }
+        return response
     }
 
     if (response.status !== 401) {

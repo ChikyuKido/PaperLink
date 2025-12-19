@@ -17,7 +17,7 @@ const routes = [
         component: Search,
     },
     {
-        path: '/',
+        path: '/settings',
         name: 'Settings',
         component: Settings,
     },
