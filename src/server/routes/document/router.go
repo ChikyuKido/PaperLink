@@ -2,9 +2,12 @@ package document
 
 import (
 	"paperlink/server/middleware"
+	"paperlink/util"
 
 	"github.com/gin-gonic/gin"
 )
+
+var log = util.GroupLog("DOCUMENT")
 
 func InitDocumentRouter(r *gin.Engine) {
 	group := r.Group("/api/v1/document")

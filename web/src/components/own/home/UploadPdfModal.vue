@@ -87,7 +87,7 @@ async function upload(selectedFile: File) {
     })
 
     const json = await res.json()
-    if (!res.ok || json?.code !== 200 || !json?.data?.id) {
+    if (!res.ok || json?.code !== 200 || !json?.data?.fileUUID) {
       error.value = 'Failed to upload file.'
       file.value = null
       fileName.value = ''
@@ -95,7 +95,7 @@ async function upload(selectedFile: File) {
       return
     }
 
-    fileUUID.value = json.data.id
+    fileUUID.value = json.data.fileUUID
   } catch {
     error.value = 'Failed to upload file.'
     file.value = null

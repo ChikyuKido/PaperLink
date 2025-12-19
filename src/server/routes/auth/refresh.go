@@ -2,15 +2,12 @@ package auth
 
 import (
 	"net/http"
+	"paperlink/db/repo"
 	"paperlink/server/routes"
 	"paperlink/util"
 
 	"github.com/gin-gonic/gin"
 )
-
-type RefreshRequest struct {
-	RefreshToken string `json:"refresh"`
-}
 
 // Refresh godoc
 // @Summary      Refresh access token
@@ -18,24 +15,36 @@ type RefreshRequest struct {
 // @Tags         auth
 // @Accept       json
 // @Produce      json
-// @Param        request  body      RefreshRequest  true  "Refresh payload"
-// @Success      200      {object}  routes.Response
-// @Failure      400      {object}  routes.Response
-// @Failure      401      {object}  routes.Response
-// @Failure      500      {object}  routes.Response
-// @Router       /auth/refresh [post]
+// @Success      200      {object}  LoginResponse
+// @Failure      401      {object}  routes.ErrorResponse "Invalid or missing refresh token"
+// @Failure      500      {object}  routes.ErrorResponse "Internal server error"
+// @Router       /api/v1/auth/refresh [post]
 func Refresh(c *gin.Context) {
 	refreshToken, err := c.Cookie("refresh")
 	if err != nil || refreshToken == "" {
-		c.JSON(http.StatusUnauthorized, routes.NewError(401, "missing refresh token"))
+		routes.JSONError(c, http.StatusUnauthorized, "missing refresh token")
 		return
 	}
+
+	claims, err := util.ParseJWT(refreshToken)
+	if err != nil {
+		routes.JSONError(c, http.StatusUnauthorized, "invalid refresh token")
+		return
+	}
+
+	user, err := repo.User.Get(claims.UserID)
+	if err != nil || user == nil {
+		routes.JSONError(c, http.StatusUnauthorized, "user no longer exists")
+		return
+	}
+
 	access, err := util.RefreshAccessToken(refreshToken)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, routes.NewError(401, "invalid refresh token"))
+		routes.JSONError(c, http.StatusUnauthorized, "invalid refresh token")
 		return
 	}
-	c.JSON(http.StatusOK, routes.NewSuccess(gin.H{
-		"access": access,
-	}))
+	routes.JSONSuccess(c, http.StatusOK, LoginResponse{
+		AccessToken: access,
+	})
+
 }

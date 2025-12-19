@@ -22,7 +22,7 @@ func (r *Repository[T]) SaveList(entities []*T) error {
 	return r.db.Save(&entities).Error
 }
 
-func (r *Repository[T]) Get(id int) (*T, error) {
+func (r *Repository[T]) Get(id any) (*T, error) {
 	var entity T
 	result := r.db.First(&entity, id)
 	if result.Error != nil {
@@ -40,7 +40,7 @@ func (r *Repository[T]) GetList() ([]T, error) {
 	return entities, nil
 }
 
-func (r *Repository[T]) Delete(id int) error {
+func (r *Repository[T]) Delete(id any) error {
 	var entity T
 	return r.db.Delete(&entity, id).Error
 }

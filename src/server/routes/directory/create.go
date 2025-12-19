@@ -1,10 +1,12 @@
 package directory
 
 import (
-	"github.com/gin-gonic/gin"
+	"net/http"
 	"paperlink/db/entity"
 	"paperlink/db/repo"
 	"paperlink/server/routes"
+
+	"github.com/gin-gonic/gin"
 )
 
 type CreateDirectoryRequest struct {
@@ -12,10 +14,28 @@ type CreateDirectoryRequest struct {
 	ParentID *int   `json:"parentId"`
 }
 
+type CreateDirectoryResponse struct {
+	ID int `json:"id"`
+}
+
+// Create godoc
+// @Summary      Create directory
+// @Description  Creates a new directory for the authenticated user.
+// @Tags         directory
+// @Accept       json
+// @Produce      json
+// @Param        request body CreateDirectoryRequest true "Create directory payload"
+// @Success      201 {object} CreateDirectoryResponse
+// @Failure      400 {object} routes.ErrorResponse "Invalid request body"
+// @Failure      401 {object} routes.ErrorResponse "Unauthorized"
+// @Failure      409 {object} routes.ErrorResponse "Failed to create directory"
+// @Router       /api/v1/directories [post]
+// @Security     BearerAuth
 func Create(c *gin.Context) {
 	var req CreateDirectoryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, routes.NewError(400, "failed to parse json: "+err.Error()))
+		log.Warnf("invalid create directory body: %v", err)
+		routes.JSONError(c, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
@@ -27,10 +47,21 @@ func Create(c *gin.Context) {
 		ParentID: req.ParentID,
 	}
 
+	if req.ParentID != nil {
+		parent, err := repo.Directory.Get(*req.ParentID)
+		if err != nil || parent.UserID != userID {
+			routes.JSONError(c, http.StatusForbidden, "invalid parent directory")
+			return
+		}
+	}
+
 	if err := repo.Directory.Save(&dir); err != nil {
-		c.JSON(409, routes.NewError(409, "failed to save directory: "+err.Error()))
+		log.Errorf("failed to save directory for user %d: %v", userID, err)
+		routes.JSONError(c, http.StatusConflict, "failed to create directory")
 		return
 	}
 
-	c.JSON(201, routes.NewSuccess(gin.H{"id": dir.ID}))
+	routes.JSONSuccess(c, http.StatusCreated, CreateDirectoryResponse{
+		ID: dir.ID,
+	})
 }

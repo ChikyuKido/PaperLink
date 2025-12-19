@@ -17,7 +17,7 @@ var TagColors = []string{
 }
 
 type Tag struct {
-	ID    int    `gorm:"primary_key;AUTO_INCREMENT"`
-	Name  string `gorm:"unique"`
+	ID    int    `gorm:"primaryKey"`
+	Name  string `gorm:"uniqueIndex"`
 	Color string
 }

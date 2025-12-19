@@ -15,16 +15,855 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/ping": {
-            "get": {
-                "summary": "Ping",
+        "/api/v1/auth/login": {
+            "post": {
+                "description": "Authenticates a user and returns a JWT access token.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Login user",
+                "parameters": [
+                    {
+                        "description": "Login payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/auth.LoginRequest"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "pong",
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/auth.LoginResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Invalid credentials",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/refresh": {
+            "post": {
+                "description": "Issues a new access token using a valid refresh token.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Refresh access token",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/auth.LoginResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Invalid or missing refresh token",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/register": {
+            "post": {
+                "description": "Creates a new user using a valid invite code.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Register user",
+                "parameters": [
+                    {
+                        "description": "Register payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/auth.RegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/routes.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Invalid invite code",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Username already taken",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/directories": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates a new directory for the authenticated user.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "directory"
+                ],
+                "summary": "Create directory",
+                "parameters": [
+                    {
+                        "description": "Create directory payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/directory.CreateDirectoryRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/directory.CreateDirectoryResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Failed to create directory",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/directories/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Deletes a directory owned by the authenticated user.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "directory"
+                ],
+                "summary": "Delete directory",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Directory ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Invalid directory ID",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Directory not found",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Updates a directory owned by the authenticated user.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "directory"
+                ],
+                "summary": "Update directory",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Directory ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update directory payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/directory.UpdateDirectoryRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Directory not found",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Invalid parent directory",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/documents/create": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates a new document for the authenticated user.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "document"
+                ],
+                "summary": "Create document",
+                "parameters": [
+                    {
+                        "description": "Create document payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/document.CreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/document.DocumentResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/documents/delete/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Deletes a document owned by the authenticated user.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "document"
+                ],
+                "summary": "Delete document",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Document ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Invalid document ID",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Document not found",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/documents/upload": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Uploads a PDF, converts it to PVF, and stores it.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "document"
+                ],
+                "summary": "Upload document file",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "PDF file",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/document.UploadDocumentResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid upload",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/invite/create": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates a new registration invite (admin only).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "invite"
+                ],
+                "summary": "Create registration invite",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/invite.CreateInviteResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/structure/tree": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the full directory and document tree for the authenticated user.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "structure"
+                ],
+                "summary": "Get directory tree",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/structure.DirNode"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/pdf/{id}/{page}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns a custom binary format:\nflag byte (0=single,1=multi). Single: raw page bytes follow.\nMulti: repeated blocks of uint64 size + page bytes.",
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "tags": [
+                    "pdf"
+                ],
+                "summary": "Fetch PDF page or page range",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Document UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Page or range (e.g. 3 or 2-5)",
+                        "name": "page",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "400": {
+                        "description": "invalid page or format",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "forbidden",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "document not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "failed to read page(s)",
                         "schema": {
                             "type": "string"
                         }
                     }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "auth.LoginRequest": {
+            "type": "object",
+            "properties": {
+                "password": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "auth.LoginResponse": {
+            "type": "object",
+            "properties": {
+                "access": {
+                    "type": "string"
+                }
+            }
+        },
+        "auth.RegisterRequest": {
+            "type": "object",
+            "properties": {
+                "inviteCode": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "directory.CreateDirectoryRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "parentId": {
+                    "type": "integer"
+                }
+            }
+        },
+        "directory.CreateDirectoryResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "directory.UpdateDirectoryRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "parentId": {
+                    "type": "integer"
+                }
+            }
+        },
+        "document.CreateRequest": {
+            "type": "object",
+            "required": [
+                "fileUUID",
+                "name"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "directoryId": {
+                    "type": "integer"
+                },
+                "fileUUID": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "document.DocumentResponse": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "directoryId": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "uuid": {
+                    "type": "string"
+                }
+            }
+        },
+        "document.UploadDocumentResponse": {
+            "type": "object",
+            "properties": {
+                "fileUUID": {
+                    "type": "string"
+                }
+            }
+        },
+        "invite.CreateInviteResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "expiresAt": {
+                    "type": "integer"
+                }
+            }
+        },
+        "routes.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "error": {
+                    "type": "string"
+                }
+            }
+        },
+        "routes.Response": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "data": {}
+            }
+        },
+        "structure.DirNode": {
+            "type": "object",
+            "properties": {
+                "directories": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/structure.DirNode"
+                    }
+                },
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/structure.FileNode"
+                    }
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "structure.FileNode": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "size": {
+                    "type": "integer"
                 }
             }
         }
@@ -41,6 +880,8 @@ var SwaggerInfo = &swag.Spec{
 	Description:      "",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
+	LeftDelim:        "{{",
+	RightDelim:       "}}",
 }
 
 func init() {

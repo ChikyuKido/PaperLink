@@ -1,12 +1,555 @@
+definitions:
+  auth.LoginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    type: object
+  auth.LoginResponse:
+    properties:
+      access:
+        type: string
+    type: object
+  auth.RegisterRequest:
+    properties:
+      inviteCode:
+        type: string
+      password:
+        type: string
+      username:
+        type: string
+    type: object
+  directory.CreateDirectoryRequest:
+    properties:
+      name:
+        type: string
+      parentId:
+        type: integer
+    required:
+    - name
+    type: object
+  directory.CreateDirectoryResponse:
+    properties:
+      id:
+        type: integer
+    type: object
+  directory.UpdateDirectoryRequest:
+    properties:
+      name:
+        type: string
+      parentId:
+        type: integer
+    type: object
+  document.CreateRequest:
+    properties:
+      description:
+        type: string
+      directoryId:
+        type: integer
+      fileUUID:
+        type: string
+      name:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+    required:
+    - fileUUID
+    - name
+    type: object
+  document.DocumentResponse:
+    properties:
+      description:
+        type: string
+      directoryId:
+        type: integer
+      name:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+      uuid:
+        type: string
+    type: object
+  document.UploadDocumentResponse:
+    properties:
+      fileUUID:
+        type: string
+    type: object
+  invite.CreateInviteResponse:
+    properties:
+      code:
+        type: string
+      expiresAt:
+        type: integer
+    type: object
+  routes.ErrorResponse:
+    properties:
+      code:
+        type: integer
+      error:
+        type: string
+    type: object
+  routes.Response:
+    properties:
+      code:
+        type: integer
+      data: {}
+    type: object
+  structure.DirNode:
+    properties:
+      directories:
+        items:
+          $ref: '#/definitions/structure.DirNode'
+        type: array
+      files:
+        items:
+          $ref: '#/definitions/structure.FileNode'
+        type: array
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  structure.FileNode:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      size:
+        type: integer
+    type: object
 info:
   contact: {}
 paths:
-  /ping:
-    get:
+  /api/v1/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticates a user and returns a JWT access token.
+      parameters:
+      - description: Login payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.LoginRequest'
+      produces:
+      - application/json
       responses:
         "200":
-          description: pong
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.LoginResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "401":
+          description: Invalid credentials
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+      summary: Login user
+      tags:
+      - auth
+  /api/v1/auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Issues a new access token using a valid refresh token.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.LoginResponse'
+        "401":
+          description: Invalid or missing refresh token
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+      summary: Refresh access token
+      tags:
+      - auth
+  /api/v1/auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new user using a valid invite code.
+      parameters:
+      - description: Register payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/routes.Response'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "401":
+          description: Invalid invite code
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "409":
+          description: Username already taken
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+      summary: Register user
+      tags:
+      - auth
+  /api/v1/directories:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new directory for the authenticated user.
+      parameters:
+      - description: Create directory payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/directory.CreateDirectoryRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/directory.CreateDirectoryResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "409":
+          description: Failed to create directory
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create directory
+      tags:
+      - directory
+  /api/v1/directories/{id}:
+    delete:
+      description: Deletes a directory owned by the authenticated user.
+      parameters:
+      - description: Directory ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid directory ID
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "404":
+          description: Directory not found
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete directory
+      tags:
+      - directory
+    patch:
+      consumes:
+      - application/json
+      description: Updates a directory owned by the authenticated user.
+      parameters:
+      - description: Directory ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Update directory payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/directory.UpdateDirectoryRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "404":
+          description: Directory not found
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "409":
+          description: Invalid parent directory
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update directory
+      tags:
+      - directory
+  /api/v1/documents/create:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new document for the authenticated user.
+      parameters:
+      - description: Create document payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/document.CreateRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/document.DocumentResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create document
+      tags:
+      - document
+  /api/v1/documents/delete/{id}:
+    delete:
+      description: Deletes a document owned by the authenticated user.
+      parameters:
+      - description: Document ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid document ID
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "404":
+          description: Document not found
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete document
+      tags:
+      - document
+  /api/v1/documents/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Uploads a PDF, converts it to PVF, and stores it.
+      parameters:
+      - description: PDF file
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/document.UploadDocumentResponse'
+        "400":
+          description: Invalid upload
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Upload document file
+      tags:
+      - document
+  /api/v1/invite/create:
+    post:
+      description: Creates a new registration invite (admin only).
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/invite.CreateInviteResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create registration invite
+      tags:
+      - invite
+  /api/v1/structure/tree:
+    get:
+      description: Returns the full directory and document tree for the authenticated
+        user.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/structure.DirNode'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get directory tree
+      tags:
+      - structure
+  /pdf/{id}/{page}:
+    get:
+      description: |-
+        Returns a custom binary format:
+        flag byte (0=single,1=multi). Single: raw page bytes follow.
+        Multi: repeated blocks of uint64 size + page bytes.
+      parameters:
+      - description: Document UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Page or range (e.g. 3 or 2-5)
+        in: path
+        name: page
+        required: true
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "400":
+          description: invalid page or format
           schema:
             type: string
-      summary: Ping
+        "403":
+          description: forbidden
+          schema:
+            type: string
+        "404":
+          description: document not found
+          schema:
+            type: string
+        "500":
+          description: failed to read page(s)
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Fetch PDF page or page range
+      tags:
+      - pdf
 swagger: "2.0"

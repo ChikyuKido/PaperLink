@@ -20,8 +20,17 @@ func (n *DocumentRepo) GetAnnotationsById(documentID int) ([]entity.Annotation, 
 	return annotations, err
 }
 
-func (r *DocumentRepo) GetAllByUserId(userId int) ([]entity.Document, error) {
+func (r *DocumentRepo) GetAllByUserIdWithFile(userId int) ([]entity.Document, error) {
 	var result []entity.Document
-	err := r.db.Where("user_id = ?", userId).Find(&result).Error
+	err := r.db.Preload("FileDocument").Where("user_id = ?", userId).Find(&result).Error
 	return result, err
+}
+
+func (r *DocumentRepo) GetByUUIDWithFile(uuid string) *entity.Document {
+	var doc entity.Document
+	err := r.db.Preload("FileDocument").Where("uuid = ?", uuid).First(&doc).Error
+	if err != nil {
+		return nil
+	}
+	return &doc
 }

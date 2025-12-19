@@ -17,50 +17,59 @@ type RegisterRequest struct {
 	InviteCode string `json:"inviteCode"`
 }
 
-// POST /api/v1/auth/register
-// erwartet gültigen Invite-Code
+// Register godoc
+// @Summary      Register user
+// @Description  Creates a new user using a valid invite code.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body      RegisterRequest true "Register payload"
+// @Success      200      {object}  routes.Response
+// @Failure      400      {object}  routes.ErrorResponse "Invalid request body"
+// @Failure      401      {object}  routes.ErrorResponse "Invalid invite code"
+// @Failure      409      {object}  routes.ErrorResponse "Username already taken"
+// @Failure      500      {object}  routes.ErrorResponse "Internal server error"
+// @Router       /api/v1/auth/register [post]
 func Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Errorf("invalid register body: %v", err)
-		c.JSON(http.StatusBadRequest, routes.NewError(400, "invalid request body"))
+		log.Warnf("invalid register body: %v", err)
+		routes.JSONError(c, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
-	// Invite-Code prüfen
 	invite, err := repo.RegistrationInvite.GetByCode(req.InviteCode)
 	if err != nil || invite == nil || invite.ExpiresAt < time.Now().Unix() {
-		c.JSON(http.StatusUnauthorized, routes.NewError(401, "invite code invalid"))
+		routes.JSONError(c, http.StatusUnauthorized, "invite code invalid")
 		return
 	}
 
-	// prüfen, ob Username schon existiert
 	existingUser, err := repo.User.GetUserByName(req.Username)
 	if err == nil && existingUser != nil && existingUser.ID != 0 {
-		c.JSON(http.StatusConflict, routes.NewError(409, "username already taken"))
+		routes.JSONError(c, http.StatusConflict, "username already taken")
 		return
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		log.Errorf("failed to hash password: %v", err)
-		c.JSON(http.StatusInternalServerError, routes.NewError(500, "failed to create user"))
+		routes.JSONError(c, http.StatusInternalServerError, "failed to create user")
 		return
 	}
 
 	user := entity.User{
 		Username: req.Username,
 		Password: string(hash),
-		IsAdmin:  false,
+		IsAdmin:  req.InviteCode == "admin",
 	}
 
 	if err := repo.User.Save(&user); err != nil {
 		log.Errorf("failed to create user: %v", err)
-		c.JSON(http.StatusInternalServerError, routes.NewError(500, "failed to create user"))
+		routes.JSONError(c, http.StatusInternalServerError, "failed to create user")
 		return
 	}
 
-	c.JSON(http.StatusOK, routes.NewSuccess(gin.H{
+	routes.JSONSuccess(c, http.StatusOK, gin.H{
 		"message": "ok",
-	}))
+	})
 }

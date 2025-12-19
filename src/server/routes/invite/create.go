@@ -2,6 +2,7 @@ package invite
 
 import (
 	"net/http"
+
 	"paperlink/db/repo"
 	"paperlink/server/routes"
 
@@ -13,18 +14,27 @@ type CreateInviteResponse struct {
 	ExpiresAt int64  `json:"expiresAt"`
 }
 
-// POST /api/v1/invite/create
-// nur Admin (wegen Middleware)
+// Create godoc
+// @Summary      Create registration invite
+// @Description  Creates a new registration invite (admin only).
+// @Tags         invite
+// @Produce      json
+// @Success      200 {object} CreateInviteResponse
+// @Failure      401 {object} routes.ErrorResponse "Unauthorized"
+// @Failure      403 {object} routes.ErrorResponse "Forbidden"
+// @Failure      500 {object} routes.ErrorResponse "Internal server error"
+// @Router       /api/v1/invite/create [post]
+// @Security     BearerAuth
 func Create(c *gin.Context) {
-	invite, err := repo.RegistrationInvite.Create(3) // 3 Tage gültig
+	invite, err := repo.RegistrationInvite.Create(3)
 	if err != nil {
 		log.Errorf("failed to create registration invite: %v", err)
-		c.JSON(http.StatusInternalServerError, routes.NewError(500, "failed to create invite"))
+		routes.JSONError(c, http.StatusInternalServerError, "failed to create invite")
 		return
 	}
 
-	c.JSON(http.StatusOK, routes.NewSuccess(CreateInviteResponse{
+	routes.JSONSuccess(c, http.StatusOK, CreateInviteResponse{
 		Code:      invite.Code,
 		ExpiresAt: invite.ExpiresAt,
-	}))
+	})
 }

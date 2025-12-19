@@ -1,8 +1,12 @@
 package pdf
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+	"paperlink/server/middleware"
+)
 
 func InitPDFRouter(r *gin.Engine) {
 	group := r.Group("/api/v1/pdf")
-	group.GET("/:id/:page", GetPage())
+	group.Use(middleware.Auth)
+	group.GET("/:id/:page", GetPage)
 }

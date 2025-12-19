@@ -15,41 +15,47 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
+type LoginResponse struct {
+	AccessToken string `json:"access"`
+}
+
 // Login godoc
 // @Summary      Login user
-// @Description  Authenticates a user and returns a JWT token.
+// @Description  Authenticates a user and returns a JWT access token.
 // @Tags         auth
 // @Accept       json
 // @Produce      json
-// @Param        request  body      LoginRequest  true  "Login payload"
-// @Success      200      {object}  routes.Response
-// @Failure      400      {object}  routes.Response
-// @Failure      401      {object}  routes.Response
-// @Failure      500      {object}  routes.Response
-// @Router       /auth/login [post]
+// @Param        request  body      LoginRequest        true  "Login payload"
+// @Success 200 {object} LoginResponse
+// @Failure      400      {object}  routes.ErrorResponse "Invalid request body"
+// @Failure      401      {object}  routes.ErrorResponse "Invalid credentials"
+// @Failure      500      {object}  routes.ErrorResponse "Internal server error"
+// @Router       /api/v1/auth/login [post]
 func Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.WithError(err).Warn("invalid login body")
-		c.JSON(http.StatusBadRequest, routes.NewError(400, "invalid request body"))
+		log.Warnf("invalid login body: %v", err)
+		routes.JSONError(c, http.StatusBadRequest, "invalid request body")
 		return
 	}
+
 	user, err := repo.User.GetUserByName(req.Username)
 	if err != nil {
-		log.Errorf("failed to query user: %v", err)
-		c.JSON(http.StatusUnauthorized, routes.NewError(401, "wrong username or password"))
+		log.Warnf("login failed for user %s: %v", req.Username, err)
+		routes.JSONError(c, http.StatusUnauthorized, "wrong username or password")
 		return
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		c.JSON(http.StatusUnauthorized, routes.NewError(401, "wrong username or password"))
+		log.Warnf("password mismatch for user %s", req.Username)
+		routes.JSONError(c, http.StatusUnauthorized, "wrong username or password")
 		return
 	}
 
 	access, refresh, err := util.GenerateJWT(user.ID, user.Username)
 	if err != nil {
-		log.Errorf("failed to generate jwt: %v", err)
-		c.JSON(http.StatusInternalServerError, routes.NewError(500, "failed to generate jwt"))
+		log.Errorf("failed to generate jwt for user %s: %v", req.Username, err)
+		routes.JSONError(c, http.StatusInternalServerError, "failed to generate jwt")
 		return
 	}
 
@@ -62,7 +68,8 @@ func Login(c *gin.Context) {
 		false,
 		true,
 	)
-	c.JSON(http.StatusOK, routes.NewSuccess(gin.H{
-		"access": access,
-	}))
+	routes.JSONSuccess(c, http.StatusOK, LoginResponse{
+		AccessToken: access,
+	})
+
 }

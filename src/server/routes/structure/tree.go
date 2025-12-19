@@ -1,11 +1,13 @@
 package structure
 
 import (
-	"github.com/gin-gonic/gin"
 	"net/http"
+
 	"paperlink/db/entity"
 	"paperlink/db/repo"
 	"paperlink/server/routes"
+
+	"github.com/gin-gonic/gin"
 )
 
 type FileNode struct {
@@ -21,44 +23,63 @@ type DirNode struct {
 	Directories []DirNode  `json:"directories"`
 }
 
+// Tree godoc
+// @Summary      Get directory tree
+// @Description  Returns the full directory and document tree for the authenticated user.
+// @Tags         structure
+// @Produce      json
+// @Success      200 {object} DirNode
+// @Failure      401 {object} routes.ErrorResponse "Unauthorized"
+// @Failure      500 {object} routes.ErrorResponse "Internal server error"
+// @Router       /api/v1/structure/tree [get]
+// @Security     BearerAuth
 func Tree(c *gin.Context) {
 	userID := c.GetInt("userId")
 
 	directories, err := repo.Directory.GetAllByUserId(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, routes.NewError(500, "failed to fetch directories"))
+		log.Errorf("failed to fetch directories for user %d: %v", userID, err)
+		routes.JSONError(c, http.StatusInternalServerError, "failed to fetch directories")
 		return
 	}
-	documents, err := repo.Document.GetAllByUserId(userID)
+
+	documents, err := repo.Document.GetAllByUserIdWithFile(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, routes.NewError(500, "failed to fetch documents"))
+		log.Errorf("failed to fetch documents for user %d: %v", userID, err)
+		routes.JSONError(c, http.StatusInternalServerError, "failed to fetch documents")
 		return
 	}
+
 	directoriesMap := make(map[int][]entity.Directory)
 	for _, directory := range directories {
 		parentID := 0
 		if directory.ParentID != nil {
 			parentID = *directory.ParentID
 		}
-		if _, ok := directoriesMap[parentID]; !ok {
-			directoriesMap[parentID] = []entity.Directory{}
-		}
 		directoriesMap[parentID] = append(directoriesMap[parentID], directory)
 	}
+
 	documentsMap := make(map[int][]entity.Document)
 	for _, document := range documents {
 		directoryID := 0
 		if document.DirectoryID != nil {
 			directoryID = *document.DirectoryID
 		}
-		if _, ok := documentsMap[directoryID]; !ok {
-			documentsMap[directoryID] = []entity.Document{}
-		}
 		documentsMap[directoryID] = append(documentsMap[directoryID], document)
 	}
-	c.JSON(http.StatusOK, routes.NewSuccess(
-		buildTree("", 0, documentsMap[0], directoriesMap[0], documentsMap, directoriesMap)))
+
+	tree := buildTree(
+		"",
+		0,
+		documentsMap[0],
+		directoriesMap[0],
+		documentsMap,
+		directoriesMap,
+	)
+
+	routes.JSONSuccess(c, http.StatusOK, tree)
 }
+
 func mapDocuments(docs []entity.Document) []FileNode {
 	files := make([]FileNode, 0, len(docs))
 
@@ -90,14 +111,11 @@ func buildTree(
 	}
 
 	for _, directory := range directories {
-		childrenDirs := dirMap[directory.ID]
-		childrenDocs := docMap[directory.ID]
-
 		child := buildTree(
 			directory.Name,
 			directory.ID,
-			childrenDocs,
-			childrenDirs,
+			docMap[directory.ID],
+			dirMap[directory.ID],
 			docMap,
 			dirMap,
 		)
