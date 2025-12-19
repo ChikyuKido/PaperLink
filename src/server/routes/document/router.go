@@ -11,4 +11,5 @@ func InitDocumentRouter(r *gin.Engine) {
 	group.Use(middleware.Auth)
 	group.POST("/create", Create)
 	group.POST("/upload", Upload)
+	group.DELETE("/delete/:id", Delete)
 }

@@ -39,7 +39,7 @@ func DB() *gorm.DB {
 		err = instance.AutoMigrate(
 			&entity.Annotation{}, &entity.AnnotationAction{}, &entity.FileDocument{},
 			&entity.Document{}, &entity.DocumentUser{}, &entity.Notification{},
-			&entity.Tag{}, &entity.User{},
+			&entity.Tag{}, &entity.User{}, &entity.Directory{},
 			&entity.RegistrationInvite{},
 		)
 		if err != nil {
