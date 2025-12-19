@@ -1,10 +1,11 @@
 package directory
 
 import (
-	"github.com/gin-gonic/gin"
 	"paperlink/db/repo"
 	"paperlink/server/routes"
 	"strconv"
+
+	"github.com/gin-gonic/gin"
 )
 
 func Delete(c *gin.Context) {
@@ -23,6 +24,7 @@ func Delete(c *gin.Context) {
 	}
 	if dir.UserID != userID {
 		c.JSON(403, routes.NewError(403, "you are not authorized to update this directory"))
+		return
 	}
 
 	if err := repo.Directory.Delete(id); err != nil {

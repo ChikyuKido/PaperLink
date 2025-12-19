@@ -16,6 +16,6 @@ type Annotation struct {
 	UpdatedAt  int64
 	PositionX  float64
 	PositionY  float64
-	Document   Document
-	DocumentID int `gorm:"foreignKey:DocumentID"`
+	Document   Document `gorm:"constraint:OnDelete:CASCADE;"`
+	DocumentID int      `gorm:"foreignKey:DocumentID"`
 }
