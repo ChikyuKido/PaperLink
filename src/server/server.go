@@ -4,6 +4,7 @@ import (
 	"paperlink/server/routes/auth"
 	"paperlink/server/routes/directory"
 	"paperlink/server/routes/document"
+	"paperlink/server/routes/invite"
 	"paperlink/server/routes/pdf"
 	"paperlink/server/routes/structure"
 	"paperlink/util"
@@ -18,6 +19,7 @@ func Start() {
 	auth.InitAuthRouter(r)
 	pdf.InitPDFRouter(r)
 	document.InitDocumentRouter(r)
+	invite.InitInviteRouter(r)
 	directory.InitDirectoryRouter(r)
 	structure.InitStructureRoutes(r)
 	log.Info("starting server at port 8080")

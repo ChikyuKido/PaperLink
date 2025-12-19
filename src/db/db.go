@@ -2,11 +2,12 @@ package db
 
 import (
 	"fmt"
-	"gorm.io/gorm/logger"
 	"os"
 	"paperlink/db/entity"
 	"paperlink/util"
 	"sync"
+
+	"gorm.io/gorm/logger"
 
 	"github.com/sirupsen/logrus"
 	"gorm.io/driver/sqlite"
@@ -39,6 +40,7 @@ func DB() *gorm.DB {
 			&entity.Annotation{}, &entity.AnnotationAction{}, &entity.FileDocument{},
 			&entity.Document{}, &entity.DocumentUser{}, &entity.Notification{},
 			&entity.Tag{}, &entity.User{},
+			&entity.RegistrationInvite{},
 		)
 		if err != nil {
 			log.Fatalf("Error migrating database: %v", err)
