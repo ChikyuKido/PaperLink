@@ -39,7 +39,7 @@ func Create(c *gin.Context) {
 		UUID:        uuid.New().String(),
 		Name:        req.Name,
 		Description: req.Description,
-		OwnerID:     userID,
+		UserID:      userID,
 		FileUUID:    req.FileUUID,
 		DirectoryID: req.DirectoryID,
 	}
