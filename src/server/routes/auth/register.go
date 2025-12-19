@@ -5,6 +5,7 @@ import (
 	"paperlink/db/entity"
 	"paperlink/db/repo"
 	"paperlink/server/routes"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -16,19 +17,8 @@ type RegisterRequest struct {
 	InviteCode string `json:"inviteCode"`
 }
 
-// Register godoc
-// @Summary      Register new user
-// @Description  Creates a new user. Invite code must be "test".
-// @Tags         auth
-// @Accept       json
-// @Produce      json
-// @Param        request  body      RegisterRequest  true  "Register payload"
-// @Success      200      {object}  routes.Response
-// @Failure      400      {object}  routes.Response
-// @Failure      403      {object}  routes.Response
-// @Failure      409      {object}  routes.Response
-// @Failure      500      {object}  routes.Response
-// @Router       /auth/register [post]
+// POST /api/v1/auth/register
+// erwartet gültigen Invite-Code
 func Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -37,21 +27,24 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	if req.InviteCode != "test" {
-		c.JSON(http.StatusForbidden, routes.NewError(403, "invalid invite code"))
+	// Invite-Code prüfen
+	invite, err := repo.RegistrationInvite.GetByCode(req.InviteCode)
+	if err != nil || invite == nil || invite.ExpiresAt < time.Now().Unix() {
+		c.JSON(http.StatusUnauthorized, routes.NewError(401, "invite code invalid"))
 		return
 	}
 
-	exists := repo.User.DoesUserByNameExist(req.Username)
-	if exists {
+	// prüfen, ob Username schon existiert
+	existingUser, err := repo.User.GetUserByName(req.Username)
+	if err == nil && existingUser != nil && existingUser.ID != 0 {
 		c.JSON(http.StatusConflict, routes.NewError(409, "username already taken"))
 		return
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		log.WithError(err).Error("failed to hash password")
-		c.JSON(http.StatusInternalServerError, routes.NewError(500, "internal error"))
+		log.Errorf("failed to hash password: %v", err)
+		c.JSON(http.StatusInternalServerError, routes.NewError(500, "failed to create user"))
 		return
 	}
 

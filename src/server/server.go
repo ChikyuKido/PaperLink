@@ -3,6 +3,7 @@ package server
 import (
 	"paperlink/server/routes/auth"
 	"paperlink/server/routes/document"
+	"paperlink/server/routes/invite"
 	"paperlink/server/routes/pdf"
 	"paperlink/util"
 
@@ -16,6 +17,7 @@ func Start() {
 	auth.InitAuthRouter(r)
 	pdf.InitPDFRouter(r)
 	document.InitDocumentRouter(r)
+	invite.InitInviteRouter(r)
 	log.Info("starting server at port 8080")
 	err := r.Run(":8080")
 	if err != nil {
