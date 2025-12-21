@@ -1,13 +1,12 @@
 package db
 
 import (
-	"fmt"
+	"gorm.io/gorm/logger"
+	"math"
 	"os"
 	"paperlink/db/entity"
 	"paperlink/util"
 	"sync"
-
-	"gorm.io/gorm/logger"
 
 	"github.com/sirupsen/logrus"
 	"gorm.io/driver/sqlite"
@@ -25,6 +24,10 @@ func DB() *gorm.DB {
 		err := os.MkdirAll("./data/log", 0755)
 		if err != nil {
 			logrus.Fatalf("Failed to create log directory: %v", err)
+		}
+		doesDBExist := true
+		if _, err = os.Stat("./data/db"); os.IsNotExist(err) {
+			doesDBExist = false
 		}
 		instance, err = gorm.Open(sqlite.Open("./data/app.db"), &gorm.Config{
 			Logger: logger.Default.LogMode(logger.Silent),
@@ -45,7 +48,15 @@ func DB() *gorm.DB {
 		if err != nil {
 			log.Fatalf("Error migrating database: %v", err)
 		}
-		fmt.Println("Database connection established.")
+		log.Info("Database connection established.")
+		if !doesDBExist {
+			instance.Save(&entity.RegistrationInvite{
+				Code:      "admin",
+				ExpiresAt: math.MaxInt64,
+				Uses:      1,
+			})
+			log.Info("Created admin token. This token is valid until it is taken")
+		}
 	})
 
 	return instance

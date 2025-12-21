@@ -1,14 +1,13 @@
 package auth
 
 import (
+	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"paperlink/db/entity"
 	"paperlink/db/repo"
 	"paperlink/server/routes"
 	"time"
-
-	"github.com/gin-gonic/gin"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type RegisterRequest struct {
@@ -39,8 +38,16 @@ func Register(c *gin.Context) {
 	}
 
 	invite, err := repo.RegistrationInvite.GetByCode(req.InviteCode)
-	if err != nil || invite == nil || invite.ExpiresAt < time.Now().Unix() {
+	if err != nil || invite == nil {
 		routes.JSONError(c, http.StatusUnauthorized, "invite code invalid")
+		return
+	}
+	if invite.ExpiresAt < time.Now().Unix() || invite.Uses <= 0 {
+		err := repo.RegistrationInvite.Delete(invite.ID)
+		if err != nil {
+			log.Warnf("failed to delete expired invite: %v", err)
+		}
+		routes.JSONError(c, http.StatusUnauthorized, "invite expired")
 		return
 	}
 
@@ -67,6 +74,11 @@ func Register(c *gin.Context) {
 		log.Errorf("failed to create user: %v", err)
 		routes.JSONError(c, http.StatusInternalServerError, "failed to create user")
 		return
+	}
+
+	invite.Uses -= 1
+	if err := repo.RegistrationInvite.Save(invite); err != nil {
+		log.Warnf("failed to update invite: %v", err)
 	}
 
 	routes.JSONSuccess(c, http.StatusOK, gin.H{

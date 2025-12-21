@@ -26,7 +26,7 @@ type CreateInviteResponse struct {
 // @Router       /api/v1/invite/create [post]
 // @Security     BearerAuth
 func Create(c *gin.Context) {
-	invite, err := repo.RegistrationInvite.Create(3)
+	invite, err := repo.RegistrationInvite.Create(3, 1)
 	if err != nil {
 		log.Errorf("failed to create registration invite: %v", err)
 		routes.JSONError(c, http.StatusInternalServerError, "failed to create invite")
