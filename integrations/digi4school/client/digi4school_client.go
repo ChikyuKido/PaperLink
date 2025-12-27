@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pdfcpu/pdfcpu/pkg/api"
-	"github.com/sirupsen/logrus"
+	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 	"io"
 	"log"
 	"net/http"
@@ -16,6 +16,7 @@ import (
 	"paperlink_d4s/downloader"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 )
@@ -55,7 +56,6 @@ func NewDigi4SClient(username, password string) *Digi4SchoolClient {
 		},
 	}
 }
-
 func (c *Digi4SchoolClient) Login() error {
 	baseUrl := "https://digi4school.at/br/xhr/login"
 
@@ -170,86 +170,103 @@ func (c *Digi4SchoolClient) GetBooks() ([]Book, error) {
 func (c *Digi4SchoolClient) DownloadBook(book *Book, outputPath string) error {
 	bookCookies, err := c.getBookCookies(book.DataCode)
 	if err != nil {
-		logrus.Fatal("Could not get bookCookies: ", err)
+		return fmt.Errorf("could not get bookCookies: %w", err)
 	}
-	tmp, err := os.MkdirTemp(os.TempDir(), "bookdl_*")
+
+	tmp, err := os.MkdirTemp("", "bookdl_*")
 	if err != nil {
-		log.Panicln(err)
+		return fmt.Errorf("failed to create temp dir: %w", err)
 	}
+	defer os.RemoveAll(tmp)
+
 	current, err := os.Getwd()
 	if err != nil {
-		log.Panicln(err)
+		return fmt.Errorf("failed to get current dir: %w", err)
 	}
-	os.Chdir(tmp)
-	if err != nil {
-		log.Panicln(err)
+	defer os.Chdir(current)
+
+	if err := os.Chdir(tmp); err != nil {
+		return fmt.Errorf("failed to change dir: %w", err)
 	}
 
 	digi4bCookie := &http.Cookie{Name: bookCookies.Digi4Bname, Value: bookCookies.Digi4Bvalue}
 	digi4pCookie := &http.Cookie{Name: bookCookies.Digi4Pname, Value: bookCookies.Digi4Pvalue}
 	digi4sCookie := &http.Cookie{Name: "digi4s", Value: c.getCurrentDigi4sCookie()}
 	cookies := []*http.Cookie{digi4sCookie, digi4pCookie, digi4bCookie}
-	defer os.Chdir(current)
-	defer os.RemoveAll(tmp)
+
 	page := 1
 	jobs := make(chan string, 1000)
 	results := make(chan string, 1000)
 	var wg sync.WaitGroup
+
 	for i := 0; i < 12; i++ {
 		wg.Add(1)
 		go svgWorker(jobs, results, tmp, &wg)
 	}
+
 	for {
-		var baseUrl = ""
+		var baseUrl string
 		if bookCookies.SubPath != "" {
 			baseUrl = fmt.Sprintf("https://a.digi4school.at/ebook/%s/%s", book.DataId, bookCookies.SubPath)
 		} else {
 			baseUrl = fmt.Sprintf("https://a.digi4school.at/ebook/%s", book.DataId)
 		}
+
 		name, err := downloader.DownloadOnePage(fmt.Sprintf("%s/%d.svg", baseUrl, page), cookies)
 		if name != "" {
 			jobs <- name
 		}
+
 		if err != nil {
-			fmt.Println(err)
 			break
 		}
 
 		page++
 	}
+
 	close(jobs)
 	wg.Wait()
 	close(results)
+
+	if page-1 != len(results) {
+		return fmt.Errorf("unexpected page count: got %d, expected %d", len(results), page-1)
+	}
+
 	var outputPDFs []string
 	for outputPDF := range results {
 		outputPDFs = append(outputPDFs, outputPDF)
 	}
+	sort.Strings(outputPDFs)
 
-	err = api.MergeCreateFile(outputPDFs, outputPath, false, nil)
+	err = api.MergeCreateFile(outputPDFs, outputPath, false, &model.Configuration{
+		Optimize: true,
+	})
 	if err != nil {
-		logrus.Error("Failed to merge PDFs: ", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to merge PDFs: %w", err)
 	}
+
 	return nil
 }
+
 func svgWorker(jobs <-chan string, results chan<- string, tempDir string, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for svgFile := range jobs {
-		for i := 0; i < 5; i++ {
-			outputPDF := filepath.Join(tempDir, strings.TrimSuffix(svgFile, ".svg")+".pdf")
-			cmd := exec.Command("inkscape", filepath.Join(tempDir, svgFile), "--export-type=pdf", "--export-filename="+outputPDF)
-			err := cmd.Run()
-			if err == nil {
-				results <- outputPDF
-				break
-			} else {
-				logrus.Error("Failed to convert try again: ", err)
-			}
+		outputPDF := filepath.Join(tempDir, strings.TrimSuffix(svgFile, ".svg")+".pdf")
+		cmd := exec.Command(
+			"rsvg-convert",
+			"-f", "pdf",
+			"-o", outputPDF,
+			filepath.Join(tempDir, svgFile),
+		)
+		if err := cmd.Run(); err != nil {
+			continue
 		}
+		results <- outputPDF
 	}
 }
-func (c *Digi4SchoolClient) getBookCookies(buchId string) (BookCookies, error) {
-	oauthMap, err := c.getOauthMap(buchId)
+
+func (c *Digi4SchoolClient) getBookCookies(bookId string) (BookCookies, error) {
+	oauthMap, err := c.getOauthMap(bookId)
 	if err != nil {
 		return BookCookies{}, fmt.Errorf("could not refresh digi4s cookie: %v", err)
 	}
