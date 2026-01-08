@@ -632,7 +632,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Document UUID",
+                        "description": "Document ID",
                         "name": "id",
                         "in": "path",
                         "required": true

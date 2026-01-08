@@ -3,6 +3,7 @@ package account
 import (
 	"net/http"
 	"paperlink/db/entity"
+	"paperlink/service/d4s"
 	"strconv"
 	"strings"
 
@@ -12,13 +13,17 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type SyncD4SResponse struct {
+	ID string `json:"id"`
+}
+
 // Sync godoc
 // @Summary      Sync Digi4School accounts
 // @Description  Syncs the books from the accounts to disk
 // @Tags         digi4school
 // @Produce      json
 // @Param        ids  query      string  true  "Comma-separated IDs or 'all'"
-// @Success      200  {array}   entity.Digi4SchoolAccount
+// @Success      200  {array}   SyncD4SResponse
 // @Failure      400  {object}  routes.ErrorResponse "Invalid IDs"
 // @Failure      401 {object} routes.ErrorResponse "Unauthorized"
 // @Failure      403 {object} routes.ErrorResponse "Forbidden"
@@ -57,5 +62,13 @@ func Sync(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, accounts)
+	id, err := d4s.StartSyncTask(accounts)
+	if err != nil {
+		routes.JSONError(c, http.StatusInternalServerError, "failed to start sync task")
+		return
+	}
+
+	routes.JSONSuccess(c, 200, SyncD4SResponse{
+		ID: id,
+	})
 }

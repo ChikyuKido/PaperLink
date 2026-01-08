@@ -19,7 +19,7 @@ import (
 // @Description  flag byte (0=single,1=multi). Single: raw page bytes follow.
 // @Description  Multi: repeated blocks of uint64 size + page bytes.
 // @Tags         pdf
-// @Param        id    path string true "Document UUID"
+// @Param        id    path string true "Document ID"
 // @Param        page  path string true "Page or range (e.g. 3 or 2-5)"
 // @Produce      application/octet-stream
 // @Failure      400 {string} string "invalid page or format"

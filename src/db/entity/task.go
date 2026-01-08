@@ -9,5 +9,7 @@ const (
 )
 
 type Task struct {
-	ID int `gorm:"primary_key" json:"id"`
+	ID     string     `gorm:"primary_key" json:"id"`
+	Status TaskStatus `json:"status"`
+	Name   string     `gorm:"not null" json:"name"`
 }

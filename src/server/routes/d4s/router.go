@@ -1,9 +1,9 @@
-package digi4school
+package d4s
 
 import (
 	"github.com/gin-gonic/gin"
 	"paperlink/server/middleware"
-	"paperlink/server/routes/digi4school/account"
+	"paperlink/server/routes/d4s/account"
 	"paperlink/util"
 )
 

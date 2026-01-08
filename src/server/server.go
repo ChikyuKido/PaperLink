@@ -2,7 +2,7 @@ package server
 
 import (
 	"paperlink/server/routes/auth"
-	"paperlink/server/routes/digi4school"
+	"paperlink/server/routes/d4s"
 	"paperlink/server/routes/directory"
 	"paperlink/server/routes/document"
 	"paperlink/server/routes/invite"
@@ -23,7 +23,7 @@ func Start() {
 	invite.InitInviteRouter(r)
 	directory.InitDirectoryRouter(r)
 	structure.InitStructureRoutes(r)
-	digi4school.InitDigi4SchoolRouter(r)
+	d4s.InitDigi4SchoolRouter(r)
 	log.Info("starting server at port 8080")
 	err := r.Run(":8080")
 	if err != nil {

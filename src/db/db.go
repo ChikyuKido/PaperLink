@@ -43,7 +43,7 @@ func DB() *gorm.DB {
 			&entity.Annotation{}, &entity.AnnotationAction{}, &entity.FileDocument{},
 			&entity.Document{}, &entity.DocumentUser{}, &entity.Notification{},
 			&entity.Tag{}, &entity.User{}, &entity.Directory{},
-			&entity.RegistrationInvite{}, &entity.Digi4SchoolAccount{}, &entity.Digi4SchoolBook{},
+			&entity.RegistrationInvite{}, &entity.Digi4SchoolAccount{}, &entity.Digi4SchoolBook{}, &entity.Task{},
 		)
 		if err != nil {
 			log.Fatalf("Error migrating database: %v", err)
