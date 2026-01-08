@@ -16,7 +16,7 @@ type Status struct {
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: downloader list|download ...")
+		fmt.Fprintln(os.Stderr, "usage: downloader list|download|test-login ...")
 		os.Exit(1)
 	}
 
@@ -52,11 +52,31 @@ func main() {
 			os.Exit(1)
 		}
 
+	case "test-login":
+		if len(os.Args) != 4 {
+			fmt.Fprintln(os.Stderr, "usage: downloader test-login <username> <password>")
+			os.Exit(1)
+		}
+		username, password := os.Args[2], os.Args[3]
+		testLogin(username, password)
+
 	default:
 		fmt.Fprintln(os.Stderr, "unknown command:", cmd)
-		fmt.Fprintln(os.Stderr, "available commands: list, download")
+		fmt.Fprintln(os.Stderr, "available commands: list, download, test-login")
 		os.Exit(1)
 	}
+}
+
+func testLogin(username, password string) {
+	c := client.NewDigi4SClient(username, password)
+	defer c.Logout()
+
+	if err := c.Login(); err != nil {
+		fmt.Println("0")
+		return
+	}
+
+	fmt.Println("1")
 }
 
 func listBooks(username, password string) error {

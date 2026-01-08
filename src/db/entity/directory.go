@@ -6,8 +6,6 @@ type Directory struct {
 	UserID   int
 	ParentID *int
 
-	// delete all directories if user exists
-	User User `gorm:"constraint:OnDelete:CASCADE"`
-
+	User   User       `gorm:"constraint:OnDelete:CASCADE"`
 	Parent *Directory `gorm:"foreignKey:ParentID"`
 }

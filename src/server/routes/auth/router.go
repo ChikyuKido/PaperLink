@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"paperlink/server/middleware"
 	"paperlink/util"
 
 	"github.com/gin-gonic/gin"
@@ -13,4 +14,5 @@ func InitAuthRouter(r *gin.Engine) {
 	group.POST("/register", Register)
 	group.POST("/login", Login)
 	group.POST("/refresh", Refresh)
+	group.GET("/hasAdmin", middleware.Auth, middleware.Admin, HasAdmin)
 }

@@ -44,3 +44,11 @@ func (r *Repository[T]) Delete(id any) error {
 	var entity T
 	return r.db.Delete(&entity, id).Error
 }
+func (r *Repository[T]) GetByIDs(ids []any) ([]T, error) {
+	var entities []T
+	result := r.db.Where("id IN ?", ids).Find(&entities)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return entities, nil
+}
