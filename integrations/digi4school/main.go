@@ -5,14 +5,9 @@ import (
 	"fmt"
 	"os"
 	"paperlink_d4s/client"
+	"paperlink_d4s/downloader"
 	"strings"
 )
-
-type Status struct {
-	Total     int    `json:"total"`
-	Completed int    `json:"completed"`
-	BookName  string `json:"book_name"`
-}
 
 func main() {
 	if len(os.Args) < 2 {
@@ -21,7 +16,6 @@ func main() {
 	}
 
 	cmd := os.Args[1]
-
 	switch cmd {
 	case "list":
 		if len(os.Args) != 4 {
@@ -113,8 +107,6 @@ func downloadBooks(idPathMap map[string]string, username, password string) error
 	if err != nil {
 		return err
 	}
-
-	totalBooks := len(idPathMap)
 	completed := 0
 
 	for id, path := range idPathMap {
@@ -127,15 +119,9 @@ func downloadBooks(idPathMap map[string]string, username, password string) error
 		for _, b := range books {
 			if b.DataId == id {
 				found = true
-				status := Status{
-					Total:     totalBooks,
-					Completed: completed,
-					BookName:  b.Name,
-				}
-				statusJSON, _ := json.Marshal(status)
-				fmt.Println(string(statusJSON))
+				fmt.Printf("Downloading book: %s\n", b.Name)
 
-				if err := c.DownloadBook(&b, path); err != nil {
+				if err := downloader.DownloadBook(&b, path, c.GetCurrentDigi4sCookie()); err != nil {
 					return fmt.Errorf("failed to download %s: %w", id, err)
 				}
 				completed++
@@ -147,13 +133,7 @@ func downloadBooks(idPathMap map[string]string, username, password string) error
 			return fmt.Errorf("book with id %s not found", id)
 		}
 	}
-	status := Status{
-		Total:     totalBooks,
-		Completed: completed,
-		BookName:  "",
-	}
-	statusJSON, _ := json.Marshal(status)
-	fmt.Println(string(statusJSON))
+	fmt.Printf("%d books downloaded\n", completed)
 	return nil
 }
 

@@ -59,6 +59,7 @@ func (tr *TaskRunner) log(level, msg string) {
 	defer tr.logMu.Unlock()
 	line := fmt.Sprintf("[%s] %s", level, msg)
 	tr.logs = append(tr.logs, line)
+	fmt.Println(line)
 }
 
 func (tr *TaskRunner) Info(msg string)     { tr.log("INFO", msg) }

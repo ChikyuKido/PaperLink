@@ -1,4 +1,4 @@
-package downloader
+package helper
 
 import (
 	"fmt"
@@ -9,11 +9,11 @@ import (
 	"strings"
 )
 
-func downloadEmbeddedAsset(url string, matches [][]string, cookies []*http.Cookie) error {
+func downloadEmbeddedAsset(url string, matches [][]string, client *http.Client) error {
 	trimmedURL := url[:strings.LastIndex(url, "/")+1]
 	for _, match := range matches {
 		if len(match) > 1 {
-			if err := downloadFile(fmt.Sprintf(trimmedURL+match[1]), cookies); err != nil {
+			if err := downloadFile(fmt.Sprintf(trimmedURL+match[1]), client); err != nil {
 				return fmt.Errorf("failed to download embedded asset %s: %w", match[1], err)
 			}
 		}
@@ -21,14 +21,10 @@ func downloadEmbeddedAsset(url string, matches [][]string, cookies []*http.Cooki
 	return nil
 }
 
-func downloadFile(url string, cookies []*http.Cookie) error {
-	client := &http.Client{}
+func downloadFile(url string, client *http.Client) error {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request for %s: %w", url, err)
-	}
-	for _, cookie := range cookies {
-		req.AddCookie(cookie)
 	}
 
 	resp, err := client.Do(req)
@@ -58,37 +54,33 @@ func downloadFile(url string, cookies []*http.Cookie) error {
 	return nil
 }
 
-func DownloadOnePage(url string, cookies []*http.Cookie) (string, error) {
+func DownloadOnePage(url string, client *http.Client, subPath bool) (string, bool, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to create request for %s: %w", url, err)
-	}
-	for _, cookie := range cookies {
-		req.AddCookie(cookie)
+		return "", false, fmt.Errorf("failed to create request for %s: %w", url, err)
 	}
 
-	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("failed to get file %s: %w", url, err)
+		return "", false, fmt.Errorf("failed to get file %s: %w", url, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		return "", fmt.Errorf("ERR 404 - %s", url)
+		return "", true, nil
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to read response body for %s: %w", url, err)
+		return "", false, fmt.Errorf("failed to read response body for %s: %w", url, err)
 	}
 	bodyString := string(bodyBytes)
 
 	if strings.Contains(bodyString, "image") {
 		matches := checkForEmbeddedImages(bodyString)
 		if len(matches) > 0 {
-			if err := downloadEmbeddedAsset(url, matches, cookies); err != nil {
-				return "", fmt.Errorf("failed to download embedded images for %s: %w", url, err)
+			if err := downloadEmbeddedAsset(url, matches, client); err != nil {
+				return "", false, fmt.Errorf("failed to download embedded images for %s: %w", url, err)
 			}
 		}
 	}
@@ -96,20 +88,27 @@ func DownloadOnePage(url string, cookies []*http.Cookie) (string, error) {
 	filename := path.Base(url)
 	parts := strings.Split(filename, ".")
 	if len(parts) != 2 {
-		return "", fmt.Errorf("invalid file name %s", filename)
+		return "", false, fmt.Errorf("invalid file name %s", filename)
 	}
 	number := strings.Repeat("0", 5-len(parts[0])) + parts[0]
 	filename = number + "." + parts[1]
+	if subPath {
+		filename = parts[0] + "/" + filename
+		err := os.MkdirAll(parts[0], 0700)
+		if err != nil {
+			return "", false, fmt.Errorf("failed to create directory %s: %w", parts[0], err)
+		}
+	}
 
 	file, err := os.Create(filename)
 	if err != nil {
-		return "", fmt.Errorf("failed to create file %s: %w", filename, err)
+		return "", false, fmt.Errorf("failed to create file %s: %w", filename, err)
 	}
 	defer file.Close()
 
 	if _, err := io.WriteString(file, bodyString); err != nil {
-		return "", fmt.Errorf("failed to write content to %s: %w", filename, err)
+		return "", false, fmt.Errorf("failed to write content to %s: %w", filename, err)
 	}
 
-	return filename, nil
+	return filename, false, nil
 }

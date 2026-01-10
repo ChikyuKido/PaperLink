@@ -1,4 +1,24 @@
 definitions:
+  account.CreateDigi4SchoolAccountRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  account.CreateDigi4SchoolAccountResponse:
+    properties:
+      id:
+        type: integer
+    type: object
+  account.SyncD4SResponse:
+    properties:
+      id:
+        type: string
+    type: object
   auth.LoginRequest:
     properties:
       password:
@@ -126,6 +146,30 @@ definitions:
 info:
   contact: {}
 paths:
+  /api/v1/admin/has:
+    get:
+      description: Endpoint to verify if the authenticated user has admin privileges.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Access granted
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Check admin access
+      tags:
+      - admin
   /api/v1/auth/login:
     post:
       consumes:
@@ -221,6 +265,124 @@ paths:
       summary: Register user
       tags:
       - auth
+  /api/v1/digi4school/accounts:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new Digi4School account.
+      parameters:
+      - description: Create Digi4School account payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/account.CreateDigi4SchoolAccountRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/account.CreateDigi4SchoolAccountResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "409":
+          description: Failed to create account
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create Digi4School account
+      tags:
+      - digi4school
+  /api/v1/digi4school/accounts/{id}:
+    delete:
+      description: Deletes a Digi4School account.
+      parameters:
+      - description: Account ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid account ID
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "404":
+          description: Account not found
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete Digi4School account
+      tags:
+      - digi4school
+  /api/v1/digi4school/accounts/sync/{ids}:
+    get:
+      description: Syncs the books from the accounts to disk
+      parameters:
+      - description: Comma-separated IDs or 'all'
+        in: query
+        name: ids
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/account.SyncD4SResponse'
+            type: array
+        "400":
+          description: Invalid IDs
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/routes.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Sync Digi4School accounts
+      tags:
+      - digi4school
   /api/v1/directories:
     post:
       consumes:
@@ -518,7 +680,7 @@ paths:
         flag byte (0=single,1=multi). Single: raw page bytes follow.
         Multi: repeated blocks of uint64 size + page bytes.
       parameters:
-      - description: Document UUID
+      - description: Document ID
         in: path
         name: id
         required: true
