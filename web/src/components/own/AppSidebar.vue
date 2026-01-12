@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, ref, watch} from 'vue'
+import {computed, ref} from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import {
   Sidebar,
@@ -15,7 +15,7 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarRail,
-  SidebarTrigger, useSidebar,
+  SidebarTrigger,
 } from '@/components/ui/sidebar'
 import {
   Home as HomeIcon,
@@ -27,7 +27,7 @@ import { SIDEBAR_ROUTE_RULES } from '@/router/route_config.ts'
 const route = useRoute()
 const userOpen = ref(true)
 const sidebarRule = computed(
-    () => SIDEBAR_ROUTE_RULES[route.name]
+    () => SIDEBAR_ROUTE_RULES[route.name as string]
 )
 
 const isAdmin = computed(() => true)

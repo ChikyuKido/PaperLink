@@ -9,6 +9,7 @@ import (
 	"paperlink/server/routes/pdf"
 	"paperlink/server/routes/structure"
 	"paperlink/util"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -16,7 +17,16 @@ import (
 var log = util.GroupLog("SERVER")
 
 func Start() {
-	r := gin.Default()
+	r := gin.New()
+	r.Static("/assets", "./dist/assets")
+	r.NoRoute(func(c *gin.Context) {
+		if strings.HasPrefix(c.Request.URL.Path, "/api") {
+			c.JSON(404, gin.H{"error": "not found"})
+			return
+		}
+		c.File("./dist/index.html")
+	})
+
 	auth.InitAuthRouter(r)
 	pdf.InitPDFRouter(r)
 	document.InitDocumentRouter(r)

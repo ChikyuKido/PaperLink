@@ -7,7 +7,7 @@ import { SIDEBAR_ROUTE_RULES } from '@/router/route_config.ts'
 const route = useRoute()
 
 const sidebarRule = computed(
-    () => SIDEBAR_ROUTE_RULES[route.name]
+    () => SIDEBAR_ROUTE_RULES[route.name as string]
 )
 
 const hideSidebar = computed(
