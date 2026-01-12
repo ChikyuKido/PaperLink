@@ -11,7 +11,9 @@ import (
 	"paperlink/db/repo"
 	"paperlink/service/task"
 	"path/filepath"
+	"slices"
 	"strings"
+	"time"
 )
 
 func StartSyncTask(accs []entity.Digi4SchoolAccount) (string, error) {
@@ -63,6 +65,7 @@ func syncAccounts(l *task.TaskRunner, accs []entity.Digi4SchoolAccount) {
 			neededBooks = append(neededBooks, book)
 		}
 	}
+	neededBooks = []Book{neededBooks[0]}
 	l.Info(fmt.Sprintf("Found %d needed books. Start downloading", len(neededBooks)))
 	err = downloadBooks(l, neededBooks)
 	if err != nil {
@@ -77,6 +80,7 @@ func syncAccounts(l *task.TaskRunner, accs []entity.Digi4SchoolAccount) {
 	}
 }
 func downloadBooks(l *task.TaskRunner, books []Book) error {
+	copyBooks := slices.Clone(books)
 	wd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -111,7 +115,7 @@ func downloadBooks(l *task.TaskRunner, books []Book) error {
 			}
 			downloadIdString.WriteString(book.DataId)
 			downloadIdString.WriteString("=")
-			downloadIdString.WriteString(filepath.Join(baseDir, book.UUID))
+			downloadIdString.WriteString(filepath.Join(baseDir, book.UUID+".pvf"))
 		}
 		acc := sameAccountBooks[0].Account
 		cmd := exec.Command("./integrations/d4s", "download", downloadIdString.String(), acc.Username, acc.Password)
@@ -132,11 +136,48 @@ func downloadBooks(l *task.TaskRunner, books []Book) error {
 			}
 		}()
 
+		go func() {
+			for {
+				time.Sleep(180 * time.Second)
+				err := rescanForDBInsert(baseDir, copyBooks)
+				if err != nil {
+					l.Err(fmt.Sprintf("Failed to rescan for books: %s", err.Error()))
+				}
+			}
+		}()
+
 		cmd.Wait()
+		err := rescanForDBInsert(baseDir, copyBooks)
+		if err != nil {
+			l.Err(fmt.Sprintf("Failed to rescan for books: %s", err.Error()))
+		}
 	}
 	return nil
 }
 
+func rescanForDBInsert(dir string, books []Book) error {
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return fmt.Errorf("failed to list files in %s: %v", dir, err)
+	}
+	for _, file := range files {
+		for _, book := range books {
+			if file.Name() == book.UUID+".pvf" {
+				err := repo.Digi4SchoolBook.Save(&entity.Digi4SchoolBook{
+					UUID:      book.UUID,
+					BookName:  book.Name,
+					BookID:    book.DataId,
+					AccountID: book.Account.ID,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to save book %s: %v", book.UUID, err)
+				}
+			}
+		}
+	}
+
+	return nil
+}
 func ListBooksForAccount(acc *entity.Digi4SchoolAccount) ([]Book, error) {
 	cmd := exec.Command("./integrations/d4s", "list", acc.Username, acc.Password)
 	output, err := cmd.CombinedOutput()

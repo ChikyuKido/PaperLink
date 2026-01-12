@@ -35,7 +35,6 @@ func DownloadD4sBook(c *http.Client, baseURL string, downloadPath string) ([]str
 		}
 		files = append(files, outputPDF)
 		page++
-		fmt.Printf("Downloaded pdf %s\n", outputPDF)
 	}
 
 	return files, nil
