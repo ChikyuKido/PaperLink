@@ -1,11 +1,8 @@
 package repo
 
 import (
-	"paperlink/db"
-	"paperlink/db/entity"
-	"strings"
-
 	"gorm.io/gorm"
+	"paperlink/db"
 )
 
 type Repository[T any] struct {
@@ -53,48 +50,4 @@ func (r *Repository[T]) GetByIDs(ids []any) ([]T, error) {
 		return nil, result.Error
 	}
 	return entities, nil
-}
-
-func (r *DocumentRepo) GetByUUIDWithTagsAndFile(uuid string) *entity.Document {
-	var doc entity.Document
-	err := r.db.
-		Preload("Tags").
-		Preload("File").
-		Where("uuid = ?", uuid).
-		First(&doc).Error
-	if err != nil {
-		return nil
-	}
-	return &doc
-}
-
-func (r *DocumentRepo) Filter(userID int, tags []string, search string) ([]entity.Document, error) {
-	q := r.db.
-		Model(&entity.Document{}).
-		Preload("Tags").
-		Preload("File").
-		Where("documents.user_id = ?", userID)
-
-	if search != "" {
-		like := "%" + strings.TrimSpace(search) + "%"
-		q = q.Where("(documents.name LIKE ? OR documents.description LIKE ?)", like, like)
-	}
-
-	if len(tags) > 0 {
-
-		q = q.
-			Joins("JOIN document_tags dt ON dt.document_id = documents.id").
-			Joins("JOIN tags t ON t.id = dt.tag_id").
-			Where("t.name IN ?", tags).
-			Group("documents.id").
-			Having("COUNT(DISTINCT t.name) = ?", len(tags))
-	}
-
-	var docs []entity.Document
-	err := q.Find(&docs).Error
-	return docs, err
-}
-
-func (r *DocumentRepo) SaveWithAssociations(doc *entity.Document) error {
-	return r.db.Session(&gorm.Session{FullSaveAssociations: true}).Save(doc).Error
 }
