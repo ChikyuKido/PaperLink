@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 
-import { createD4SAccount, deleteD4SAccount, syncD4SAccounts } from "@/lib/d4s_api"
+import { createD4SAccount, deleteD4SAccount, listD4SAccounts, syncD4SAccounts, type D4SAccount } from "@/lib/d4s_api"
 
 type Notice = { type: "success" | "error"; message: string } | null
 
@@ -26,21 +26,22 @@ const username = ref("")
 const password = ref("")
 
 // NOTE: backend doesn't expose an account list endpoint yet, so we keep a local list.
-const accounts = ref<{ id: number }[]>([])
+const accounts = ref<D4SAccount[]>([])
 const selectedAccountIds = ref(new Set<number>())
 
 const syncing = ref(false)
 const selectedCount = computed(() => selectedAccountIds.value.size)
 
-function addAccount(id: number) {
-  accounts.value = [{ id }, ...accounts.value]
+function addAccount(id: number, username: string) {
+  accounts.value = [{ id, username }, ...accounts.value]
 }
 
 async function submitCreateAccount() {
   if (!username.value.trim() || !password.value) return
   try {
-    const id = await createD4SAccount(username.value.trim(), password.value)
-    addAccount(id)
+    const u = username.value.trim()
+    const id = await createD4SAccount(u, password.value)
+    addAccount(id, u)
     createOpen.value = false
     username.value = ""
     password.value = ""
@@ -73,8 +74,12 @@ async function onSync(ids: "all" | number[]) {
   }
 }
 
-onMounted(() => {
-  // future: load accounts from backend list endpoint
+onMounted(async () => {
+  try {
+    accounts.value = await listD4SAccounts()
+  } catch (e: any) {
+    showNotice({ type: "error", message: e?.message ?? "Failed to load accounts" })
+  }
 })
 </script>
 
@@ -159,7 +164,7 @@ onMounted(() => {
               />
 
               <div>
-                <p class="text-sm font-medium">Account #{{ acc.id }}</p>
+                <p class="text-sm font-medium">#{{ acc.id }} · {{ acc.username || '—' }}</p>
                 <p class="text-[11px] text-neutral-500 dark:text-neutral-400">Used for syncing</p>
               </div>
             </div>

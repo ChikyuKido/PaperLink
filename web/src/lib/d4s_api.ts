@@ -40,6 +40,21 @@ export type D4SAccount = {
   username?: string
 }
 
+type ListAccountsResponse = {
+  code: number
+  data: { accounts: D4SAccount[] }
+}
+
+export async function listD4SAccounts(): Promise<D4SAccount[]> {
+  const res = await apiFetch("/api/v1/d4s/account/list")
+  if (!res.ok) {
+    const msg = await safeError(res)
+    throw new Error(msg)
+  }
+  const json = (await res.json()) as ListAccountsResponse
+  return json.data?.accounts ?? []
+}
+
 export type CreateAccountResponse = {
   code: number
   data: { id: number }
@@ -91,4 +106,3 @@ async function safeError(res: Response): Promise<string> {
     return `Request failed (${res.status})`
   }
 }
-
