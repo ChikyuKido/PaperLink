@@ -14,5 +14,6 @@ func InitDigi4SchoolAccountRouter(r *gin.RouterGroup) {
 	group.POST("/create", Create)
 	group.DELETE("/delete/:id", Delete)
 	group.GET("/sync", Sync)
+	group.GET("/list", List)
 
 }
