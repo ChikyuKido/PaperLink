@@ -1,6 +1,7 @@
 package server
 
 import (
+	"paperlink/server/routes/admin"
 	"paperlink/server/routes/auth"
 	"paperlink/server/routes/d4s"
 	"paperlink/server/routes/directory"
@@ -28,6 +29,7 @@ func Start() {
 	})
 
 	auth.InitAuthRouter(r)
+	admin.InitAdminRouter(r)
 	pdf.InitPDFRouter(r)
 	document.InitDocumentRouter(r)
 	invite.InitInviteRouter(r)

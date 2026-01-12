@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import {computed, ref} from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import {computed, onMounted, ref} from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import {
   Sidebar,
   SidebarContent,
@@ -20,17 +20,48 @@ import {
 import {
   Home as HomeIcon,
   Search as SearchIcon,
-  Settings as SettingsIcon,
-  Shield as AdminIcon,
+  BookOpen as D4SIcon,
+  Plug as IntegrationsIcon,
+  BarChart3 as StatsIcon,
+  SlidersHorizontal as AdminSettingsIcon,
+  ChevronUp,
+  LogOut,
+  User as UserIcon,
+  Ticket,
 } from 'lucide-vue-next'
 import { SIDEBAR_ROUTE_RULES } from '@/router/route_config.ts'
+import { checkIsAdmin } from '@/lib/admin'
+import { logout } from '@/auth/logout'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { currentUser } from '@/auth/user'
+import { ensureCurrentUser } from '@/auth/ensure_user'
+
+const router = useRouter()
+
+async function onLogout() {
+  await logout()
+  await router.push('/auth')
+}
+
+async function goToSettings() {
+  await router.push('/settings')
+}
+
 const route = useRoute()
 const userOpen = ref(true)
 const sidebarRule = computed(
     () => SIDEBAR_ROUTE_RULES[route.name as string]
 )
 
-const isAdmin = computed(() => true)
+const isAdmin = ref(false)
+
 const forceClosed = computed(
     () => sidebarRule.value?.forceClosed === true
 )
@@ -40,25 +71,41 @@ const effectiveOpen = computed(() => {
   return userOpen.value
 })
 
-const menuItems = computed(() => {
-  const base = [
-    { title: 'Home', to: '/', icon: HomeIcon },
-    { title: 'Search', to: '/search', icon: SearchIcon },
-    { title: 'Settings', to: '/settings', icon: SettingsIcon },
-  ]
-  if (isAdmin.value) {
-    base.push({ title: 'Admin', to: '/admin', icon: AdminIcon })
-  }
-  return base
-})
+const navItems = computed(() => [
+  { title: 'Home', to: '/', icon: HomeIcon },
+  { title: 'Search', to: '/search', icon: SearchIcon },
+  { title: 'Digi4School', to: '/d4s', icon: D4SIcon },
+])
+
+const adminItems = computed(() => [
+  { title: 'Settings', to: '/admin/settings', icon: AdminSettingsIcon },
+  { title: 'Integrations', to: '/admin/integrations', icon: IntegrationsIcon },
+  { title: 'Statistics', to: '/admin/statistics', icon: StatsIcon },
+  { title: 'Invites', to: '/admin/invites', icon: Ticket },
+])
 
 function isActive(path: string) {
   return route.path === path
 }
+
+const displayUsername = computed(() => currentUser.value?.username || 'User')
+const initials = computed(() => {
+  const u = displayUsername.value.trim()
+  if (!u) return 'U'
+  return u.slice(0, 2).toUpperCase()
+})
+
+onMounted(async () => {
+  isAdmin.value = await checkIsAdmin()
+  try {
+    await ensureCurrentUser()
+  } catch {
+  }
+})
 </script>
 
 <template>
-  <SidebarProvider :open="effectiveOpen" :key="forceClosed">
+  <SidebarProvider :open="effectiveOpen" :key="String(forceClosed)">
 
     <Sidebar
         collapsible="icon"
@@ -111,7 +158,49 @@ function isActive(path: string) {
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem
-                  v-for="item in menuItems"
+                  v-for="item in navItems"
+                  :key="item.title"
+              >
+                <SidebarMenuButton
+                    as-child
+                    :class="[
+                    'flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium transition-colors',
+                    'group-has-[[data-collapsible=icon]]/sidebar-wrapper:px-0',
+                    isActive(item.to)
+                      ? 'bg-emerald-600 text-white hover:bg-emerald-600/90'
+                      : 'text-neutral-800 hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-900',
+                  ]"
+                >
+                  <RouterLink
+                      :to="item.to"
+                      class="flex items-center gap-2 group-has-[[data-collapsible=icon]]/sidebar-wrapper:justify-center group-has-[[data-collapsible=icon]]/sidebar-wrapper:gap-0"
+                  >
+                    <component
+                        :is="item.icon"
+                        class="h-4 w-4 shrink-0"
+                    />
+                    <span
+                        class="truncate group-has-[[data-collapsible=icon]]/sidebar-wrapper:hidden"
+                    >
+                      {{ item.title }}
+                    </span>
+                  </RouterLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup v-if="isAdmin">
+          <SidebarGroupLabel
+              class="mt-2 text-[11px] uppercase tracking-[0.16em] text-neutral-500 dark:text-neutral-400 group-has-[[data-collapsible=icon]]/sidebar-wrapper:hidden"
+          >
+            Admin
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem
+                  v-for="item in adminItems"
                   :key="item.title"
               >
                 <SidebarMenuButton
@@ -145,19 +234,47 @@ function isActive(path: string) {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter
-          class="px-3 pb-3 pt-2"
-      >
-        <div
-            class="flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-[11px] text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400 group-has-[[data-collapsible=icon]]/sidebar-wrapper:hidden"
-        >
-          <span class="truncate">Self-hosted</span>
-          <span
-              class="text-[10px] uppercase tracking-[0.16em] text-neutral-400 dark:text-neutral-500"
-          >
-            Paperlink
-          </span>
-        </div>
+      <SidebarFooter class="px-2 pb-2 pt-2">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger as-child>
+                <SidebarMenuButton
+                  size="lg"
+                  class="w-full justify-between rounded-xl border border-neutral-200 bg-white px-2 py-2 hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900 dark:hover:bg-neutral-800"
+                >
+                  <div class="flex items-center gap-2.5 min-w-0">
+                    <Avatar class="h-8 w-8">
+                      <AvatarFallback class="bg-emerald-600 text-white dark:bg-emerald-500 dark:text-neutral-950">
+                        {{ initials }}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div class="min-w-0 text-left group-has-[[data-collapsible=icon]]/sidebar-wrapper:hidden">
+                      <p class="truncate text-sm font-medium">{{ displayUsername }}</p>
+                      <p class="truncate text-[11px] text-neutral-500 dark:text-neutral-400">Account</p>
+                    </div>
+                  </div>
+                  <ChevronUp class="h-4 w-4 text-neutral-500 group-has-[[data-collapsible=icon]]/sidebar-wrapper:hidden" />
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+
+              <DropdownMenuContent side="top" align="start" class="w-56">
+                <DropdownMenuItem class="cursor-pointer" @select.prevent="goToSettings">
+                  <UserIcon class="mr-2 h-4 w-4" />
+                  User settings
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  class="cursor-pointer text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"
+                  @select.prevent="onLogout"
+                >
+                  <LogOut class="mr-2 h-4 w-4" />
+                  Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarFooter>
 
       <SidebarRail />
