@@ -37,7 +37,6 @@ func Update(c *gin.Context) {
 		return
 	}
 
-	// Directory check (wenn gesetzt)
 	if req.DirectoryID != nil {
 		if *req.DirectoryID != 0 {
 			dir, err := repo.Directory.Get(*req.DirectoryID)
@@ -51,7 +50,6 @@ func Update(c *gin.Context) {
 			}
 			doc.DirectoryID = req.DirectoryID
 		} else {
-			// allow "0" to mean root (NULL)
 			doc.DirectoryID = nil
 		}
 	}
@@ -63,7 +61,6 @@ func Update(c *gin.Context) {
 		doc.Description = *req.Description
 	}
 
-	// Tags update (optional)
 	if req.Tags != nil {
 		finalTags, err := ensureTagsExist(*req.Tags)
 		if err != nil {

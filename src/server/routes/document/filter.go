@@ -2,7 +2,6 @@ package document
 
 import (
 	"net/http"
-	"paperlink/db/entity"
 	"paperlink/db/repo"
 	"paperlink/server/routes"
 	"strings"
@@ -66,50 +65,4 @@ func Filter(c *gin.Context) {
 	}
 
 	routes.JSONSuccess(c, http.StatusOK, out)
-}
-
-// Pfad wie "A/B/C" -> directoryId (exact match, keine recursion)
-// returns: (id, ok, err)
-func resolveDirectoryPathToID(userID int, path string) (int, bool, error) {
-	path = strings.Trim(path, "/")
-	parts := strings.Split(path, "/")
-	for i := range parts {
-		parts[i] = strings.TrimSpace(parts[i])
-		if parts[i] == "" {
-			return 0, false, nil
-		}
-	}
-
-	dirs, err := repo.Directory.GetAllByUserId(userID)
-	if err != nil {
-		return 0, false, err
-	}
-
-	// parentID -> name -> dir
-	type key struct {
-		parent int
-		name   string
-	}
-	index := make(map[key]entity.Directory, len(dirs))
-
-	for _, d := range dirs {
-		parent := 0
-		if d.ParentID != nil {
-			parent = *d.ParentID
-		}
-		index[key{parent: parent, name: d.Name}] = d
-	}
-
-	curParent := 0
-	var cur entity.Directory
-	for _, name := range parts {
-		d, ok := index[key{parent: curParent, name: name}]
-		if !ok {
-			return 0, false, nil
-		}
-		cur = d
-		curParent = d.ID
-	}
-
-	return cur.ID, true, nil
 }

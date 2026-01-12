@@ -68,12 +68,6 @@ func (r *DocumentRepo) GetByUUIDWithTagsAndFile(uuid string) *entity.Document {
 	return &doc
 }
 
-// Filter: tags = "alle tags müssen vorhanden sein" (AND)
-// search matched in name OR description
-// dirID:
-//   - nil  => keine directory filter (alles)
-//   - &0   => root (DirectoryID IS NULL)
-//   - &x   => exact directory (DirectoryID = x)
 func (r *DocumentRepo) Filter(userID int, tags []string, search string) ([]entity.Document, error) {
 	q := r.db.
 		Model(&entity.Document{}).
@@ -87,7 +81,7 @@ func (r *DocumentRepo) Filter(userID int, tags []string, search string) ([]entit
 	}
 
 	if len(tags) > 0 {
-		// AND-Filter: doc muss alle tags enthalten
+
 		q = q.
 			Joins("JOIN document_tags dt ON dt.document_id = documents.id").
 			Joins("JOIN tags t ON t.id = dt.tag_id").
@@ -101,7 +95,6 @@ func (r *DocumentRepo) Filter(userID int, tags []string, search string) ([]entit
 	return docs, err
 }
 
-// Save mit Many2Many korrekt (Tags updaten)
 func (r *DocumentRepo) SaveWithAssociations(doc *entity.Document) error {
 	return r.db.Session(&gorm.Session{FullSaveAssociations: true}).Save(doc).Error
 }
