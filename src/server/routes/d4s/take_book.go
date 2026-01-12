@@ -4,10 +4,12 @@ import (
 	"net/http"
 	"strconv"
 
+	"paperlink/db/entity"
 	"paperlink/db/repo"
 	"paperlink/server/routes"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type TakeBookResponse struct {
@@ -33,13 +35,39 @@ func TakeBook(c *gin.Context) {
 		return
 	}
 
-	// Ensure the book exists. (Actual "take" behavior can be implemented later.)
-	_, err = repo.Digi4SchoolBook.Get(id)
-	if err != nil {
+	userID := c.GetInt("userId")
+
+	book, err := repo.Digi4SchoolBook.Get(id)
+	if err != nil || book == nil {
 		routes.JSONError(c, http.StatusNotFound, "book not found")
 		return
 	}
 
-	routes.JSONSuccessOK(c, TakeBookResponse{ID: id})
-}
+	if book.FileUUID == "" {
+		routes.JSONError(c, http.StatusBadRequest, "book has no file")
+		return
+	}
 
+	// Create a normal Document that points to the already-downloaded FileDocument.
+	doc := entity.Document{
+		UUID:        uuid.NewString(),
+		Name:        book.BookName,
+		Description: "Digi4School book",
+		UserID:      userID,
+		FileUUID:    book.FileUUID,
+	}
+
+	if err := repo.Document.Save(&doc); err != nil {
+		routes.JSONError(c, http.StatusInternalServerError, "failed to create document")
+		return
+	}
+
+	// Also add a DocumentUser link (future-proof for permissions).
+	_ = repo.DocumentUser.Save(&entity.DocumentUser{
+		UserID:     userID,
+		DocumentID: doc.ID,
+		Role:       entity.Editor,
+	})
+
+	routes.JSONSuccessOK(c, TakeBookResponse{ID: doc.ID})
+}

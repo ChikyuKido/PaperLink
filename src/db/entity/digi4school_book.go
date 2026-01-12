@@ -7,4 +7,7 @@ type Digi4SchoolBook struct {
 	BookID    string `gorm:"unique"`
 	AccountID int
 	Account   Digi4SchoolAccount `gorm:"foreignKey:AccountID"`
+
+	FileUUID string
+	File     FileDocument `gorm:"foreignKey:FileUUID;references:UUID"`
 }
