@@ -1,9 +1,8 @@
 package repo
 
 import (
-	"paperlink/db"
-
 	"gorm.io/gorm"
+	"paperlink/db"
 )
 
 type Repository[T any] struct {
