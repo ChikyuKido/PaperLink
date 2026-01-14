@@ -63,7 +63,7 @@ func Login(c *gin.Context) {
 		"refresh",
 		refresh,
 		60*60*24*30,
-		"/api/v1/auth/refresh",
+		"/",
 		"",
 		false,
 		true,

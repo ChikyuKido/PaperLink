@@ -366,7 +366,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -391,6 +391,7 @@ import {
 } from '@/components/ui/select'
 
 import CardWithoutBorder from '@/components/own/CardWithoutBorder.vue'
+import { fetchSearchIndexFromTree, type SearchIndexItem } from '@/lib/search_api'
 
 import {
   Search as SearchIcon,
@@ -416,6 +417,7 @@ interface SearchResult {
   updatedAt: string
   owner: string
   shared: boolean
+  path: string
 }
 
 const searchQuery = ref('')
@@ -425,59 +427,70 @@ const selectedTags = ref<string[]>([])
 const tagSearch = ref('')
 const isLoading = ref(false)
 const showAllTags = ref(false)
+const loadError = ref<string | null>(null)
 
-const tags = [
-  'Homework',
-  'Exam prep',
-  'Summary',
-  'Lecture notes',
-  'Group work',
-  'Important',
-]
+const results = ref<SearchResult[]>([])
 
-const results = ref<SearchResult[]>([
-  {
-    id: '1',
-    title: 'Mathematics – Analysis worksheet 03',
-    description:
-        'Worksheet focusing on derivatives, limits and curve discussion. Includes annotations.',
-    tags: ['Homework', 'Exam prep', 'Important'],
-    pages: 6,
-    size: '1.3 MB',
-    updatedAt: 'Today · 08:42',
-    owner: 'You',
-    shared: true,
-  },
-  {
-    id: '2',
-    title: 'History – World War II summary',
-    description:
-        'Condensed summary of events between 1939–1945 including maps and timeline.',
-    tags: ['Summary', 'Exam prep'],
-    pages: 10,
-    size: '2.8 MB',
-    updatedAt: 'Yesterday · 21:17',
-    owner: 'You',
-    shared: false,
-  },
-  {
-    id: '3',
-    title: 'Paperlink – Project specification',
-    description:
-        'Initial functional requirements for Paperlink with roles and MVP scope.',
-    tags: ['Group work', 'Important'],
-    pages: 14,
-    size: '3.1 MB',
-    updatedAt: '2 days ago',
-    owner: 'Elias Langthaler',
-    shared: true,
-  },
-])
+function formatBytes(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let i = 0
+  let v = bytes
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024
+    i++
+  }
+  return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`
+}
+
+function pathToTags(path: string) {
+  // Use folder segments as tags (simple + useful with current backend data)
+  const normalized = (path || '').trim().replace(/^\/+|\/+$/g, '')
+  if (!normalized) return ['Root']
+  return normalized.split('/').filter(Boolean)
+}
+
+async function loadFromBackend() {
+  isLoading.value = true
+  loadError.value = null
+  try {
+    const items: SearchIndexItem[] = await fetchSearchIndexFromTree()
+    results.value = items.map((it) => ({
+      id: it.id,
+      title: it.title,
+      description: it.path ? `Folder: ${it.path}` : 'Folder: /',
+      tags: pathToTags(it.path),
+      pages: 0,
+      size: formatBytes(it.sizeBytes),
+      updatedAt: '',
+      owner: 'You',
+      shared: false,
+      path: it.path,
+    }))
+  } catch (e: any) {
+    loadError.value = e?.message ?? 'Failed to load documents'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+onMounted(async () => {
+  await loadFromBackend()
+})
+
+const tags = computed(() => {
+  const set = new Set<string>()
+  for (const r of results.value) {
+    for (const t of r.tags) set.add(t)
+  }
+  return Array.from(set).sort((a, b) => a.localeCompare(b))
+})
 
 const filteredTags = computed(() => {
   const q = tagSearch.value.trim().toLowerCase()
-  if (!q) return tags
-  return tags.filter((t) => t.toLowerCase().includes(q))
+  const all = tags.value
+  if (!q) return all
+  return all.filter((t) => t.toLowerCase().includes(q))
 })
 
 const filteredResults = computed(() => {
@@ -486,38 +499,35 @@ const filteredResults = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
   if (q) {
     list = list.filter(
-        (item) =>
-            item.title.toLowerCase().includes(q) ||
-            item.description.toLowerCase().includes(q) ||
-            item.tags.some((t) => t.toLowerCase().includes(q)),
+      (item) =>
+        item.title.toLowerCase().includes(q) ||
+        item.description.toLowerCase().includes(q) ||
+        item.tags.some((t) => t.toLowerCase().includes(q)),
     )
   }
 
-  if (selectedScope.value === 'mine') {
-    list = list.filter((item) => item.owner === 'You')
-  } else if (selectedScope.value === 'shared') {
+  // scope placeholders until backend provides sharing/ownership info
+  if (selectedScope.value === 'shared') {
     list = list.filter((item) => item.shared)
   }
 
   if (selectedTags.value.length) {
-    list = list.filter((item) =>
-        selectedTags.value.every((tag) => item.tags.includes(tag)),
-    )
+    list = list.filter((item) => selectedTags.value.every((tag) => item.tags.includes(tag)))
   }
 
   if (selectedSort.value === 'az') {
     list.sort((a, b) => a.title.localeCompare(b.title))
   }
-  // 'relevance' and 'recent' can be wired to backend sorting later
 
   return list
 })
 
 function onSearch() {
+  // This is now an instant local filter; keep the small loading UX.
   isLoading.value = true
-  setTimeout(() => {
+  window.setTimeout(() => {
     isLoading.value = false
-  }, 500)
+  }, 200)
 }
 
 function toggleTag(tag: string) {

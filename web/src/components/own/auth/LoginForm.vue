@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { User, Lock, Eye, EyeOff } from "lucide-vue-next"
 import {setAccessToken} from "@/auth/auth.ts";
+import { setCurrentUser } from "@/auth/user";
 
 const emit = defineEmits<{
   (e: "success"): void
@@ -63,6 +64,7 @@ async function onSubmit() {
       throw new Error(body?.error || body?.message || "Login failed")
     }
     setAccessToken(body.data.access)
+    setCurrentUser({ username: username.value })
     emit("success")
 
   } catch (e) {

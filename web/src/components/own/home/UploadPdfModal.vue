@@ -31,6 +31,14 @@ const file = ref<File | null>(null)
 const fileName = ref('')
 const fileUUID = ref<string | null>(null)
 
+// Truncate very long names for display (avoid dialog overflow)
+const displayFileName = computed(() => {
+  const n = fileName.value || ''
+  const max = 42
+  if (n.length <= max) return n
+  return n.slice(0, max - 1) + '…'
+})
+
 const name = ref('')
 const description = ref('')
 const tagsRaw = ref('')
@@ -186,7 +194,7 @@ async function save() {
                 <FileText v-else class="h-4 w-4" />
               </div>
               <div class="min-w-0">
-                <p class="truncate text-sm font-medium">{{ fileName || 'No file selected' }}</p>
+                <p class="truncate text-sm font-medium">{{ displayFileName || 'No file selected' }}</p>
                 <p class="truncate text-xs text-neutral-500 dark:text-neutral-400">
                   {{ fileUUID ? 'Uploaded — ready to save' : 'Choose a PDF to upload' }}
                 </p>

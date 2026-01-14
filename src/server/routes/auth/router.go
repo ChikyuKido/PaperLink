@@ -14,5 +14,7 @@ func InitAuthRouter(r *gin.Engine) {
 	group.POST("/register", Register)
 	group.POST("/login", Login)
 	group.POST("/refresh", Refresh)
+	group.POST("/logout", Logout)
+	group.GET("/me", middleware.Auth, Me)
 	group.GET("/hasAdmin", middleware.Auth, middleware.Admin, HasAdmin)
 }

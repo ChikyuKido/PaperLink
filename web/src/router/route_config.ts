@@ -12,4 +12,24 @@ export const SIDEBAR_ROUTE_RULES: Record<string, SidebarRouteRule> = {
         hide: true,
         forceClosed: true,
     },
+    D4S: {
+        hide: false,
+        forceClosed: false,
+    },
+    Admin: {
+        hide: false,
+        forceClosed: false,
+    },
+    AdminSettings: {
+        hide: false,
+        forceClosed: false,
+    },
+    AdminIntegrations: {
+        hide: false,
+        forceClosed: false,
+    },
+    AdminStatistics: {
+        hide: false,
+        forceClosed: false,
+    },
 }
