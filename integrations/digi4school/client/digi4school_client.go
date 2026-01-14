@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"paperlink_d4s/structs"
 	"strings"
+	"time"
 )
 
 type Digi4SchoolClient struct {
@@ -132,6 +133,7 @@ func (c *Digi4SchoolClient) GetBooks() ([]structs.Book, error) {
 			Code      string `json:"code"`
 			Publisher string `json:"publisher"`
 			EbookPlus int    `json:"ebook_plus"`
+			Expiry    string `json:"expiry"`
 		} `json:"books"`
 	}
 
@@ -142,6 +144,9 @@ func (c *Digi4SchoolClient) GetBooks() ([]structs.Book, error) {
 
 	books := make([]structs.Book, 0, len(result.Books))
 	for _, b := range result.Books {
+		if ok := isExpired(b.Expiry); !ok {
+			continue
+		}
 		ebookPlus := false
 		if b.EbookPlus == 1 {
 			ebookPlus = true
@@ -165,4 +170,16 @@ func (c *Digi4SchoolClient) GetCurrentDigi4sCookie() string {
 		}
 	}
 	return ""
+}
+
+func isExpired(dateStr string) bool {
+	const layout = "02.01.2006"
+
+	t, err := time.ParseInLocation(layout, dateStr, time.Local)
+	if err != nil {
+		return true
+	}
+
+	expired := t.Before(time.Now())
+	return expired
 }
