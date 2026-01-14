@@ -66,7 +66,6 @@ func syncAccounts(l *task.TaskRunner, accs []entity.Digi4SchoolAccount) {
 			neededBooks = append(neededBooks, book)
 		}
 	}
-	neededBooks = []Book{neededBooks[0]}
 	l.Info(fmt.Sprintf("Found %d needed books. Start downloading", len(neededBooks)))
 	err = downloadBooks(l, neededBooks)
 	if err != nil {
