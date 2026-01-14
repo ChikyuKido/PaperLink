@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"paperlink/db/entity"
 	"paperlink/db/repo"
+	"paperlink/pvf"
 	"paperlink/service/task"
 	"path/filepath"
 	"slices"
@@ -169,16 +170,20 @@ func rescanForDBInsert(dir string, books []Book) error {
 					return fmt.Errorf("failed to stat file %s: %v", fullPath, statErr)
 				}
 
-				// Create/Upsert FileDocument first (UUID is the book UUID)
+				metadata, err := pvf.ReadMetadata(fullPath)
+				if err != nil {
+					return fmt.Errorf("failed to read metadata file %s: %v", fullPath, err)
+				}
+
 				fd := entity.FileDocument{
 					UUID:  book.UUID,
 					Path:  fullPath,
 					Size:  uint64(info.Size()),
-					Pages: 0,
+					Pages: metadata.PageCount,
 				}
 				_ = repo.FileDocument.Save(&fd)
 
-				err := repo.Digi4SchoolBook.Save(&entity.Digi4SchoolBook{
+				err = repo.Digi4SchoolBook.Save(&entity.Digi4SchoolBook{
 					UUID:      book.UUID,
 					BookName:  book.Name,
 					BookID:    book.DataId,

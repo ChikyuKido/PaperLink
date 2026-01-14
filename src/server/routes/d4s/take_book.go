@@ -13,7 +13,7 @@ import (
 )
 
 type TakeBookResponse struct {
-	ID int `json:"id"`
+	ID string `json:"id"`
 }
 
 // TakeBook godoc
@@ -48,7 +48,6 @@ func TakeBook(c *gin.Context) {
 		return
 	}
 
-	// Create a normal Document that points to the already-downloaded FileDocument.
 	doc := entity.Document{
 		UUID:        uuid.NewString(),
 		Name:        book.BookName,
@@ -62,12 +61,5 @@ func TakeBook(c *gin.Context) {
 		return
 	}
 
-	// Also add a DocumentUser link (future-proof for permissions).
-	_ = repo.DocumentUser.Save(&entity.DocumentUser{
-		UserID:     userID,
-		DocumentID: doc.ID,
-		Role:       entity.Editor,
-	})
-
-	routes.JSONSuccessOK(c, TakeBookResponse{ID: doc.ID})
+	routes.JSONSuccessOK(c, TakeBookResponse{ID: doc.UUID})
 }

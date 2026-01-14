@@ -29,12 +29,5 @@ func ListBooks(c *gin.Context) {
 		routes.JSONError(c, http.StatusInternalServerError, "failed to list books")
 		return
 	}
-
-	// Avoid leaking stored credentials via Account preload; return only book fields.
-	for i := range books {
-		books[i].Account = entity.Digi4SchoolAccount{}
-	}
-
 	routes.JSONSuccessOK(c, ListBooksResponse{Books: books})
 }
-
