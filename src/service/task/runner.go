@@ -6,6 +6,7 @@ import (
 	"paperlink/db/entity"
 	"paperlink/db/repo"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -65,6 +66,15 @@ func (tr *TaskRunner) Info(msg string)     { tr.log("INFO", msg) }
 func (tr *TaskRunner) Warn(msg string)     { tr.log("WARN", msg) }
 func (tr *TaskRunner) Err(msg string)      { tr.log("ERROR", msg) }
 func (tr *TaskRunner) Critical(msg string) { tr.log("CRITICAL", msg) }
+func (tr *TaskRunner) ReplaceLastInfo(msg string) {
+	if len(tr.logs) == 0 {
+		return
+	}
+	if strings.Contains(tr.logs[len(tr.logs)-1], "INFO") {
+		tr.logs = tr.logs[:len(tr.logs)-1]
+		tr.Info(msg)
+	}
+}
 
 func completeTask(tr *TaskRunner) error {
 	tr.logMu.Lock()

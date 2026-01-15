@@ -101,6 +101,7 @@ func DownloadBiboxBook(c *http.Client, location string, downloadPath string) ([]
 		}
 		files = append(files, pdf)
 		page++
+		fmt.Printf("PAGE_COUNT: %d\n", page)
 	}
 	return files, nil
 }

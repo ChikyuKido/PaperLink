@@ -9,6 +9,7 @@ import (
 	"paperlink/server/routes/invite"
 	"paperlink/server/routes/pdf"
 	"paperlink/server/routes/structure"
+	"paperlink/server/routes/task"
 	"paperlink/util"
 	"strings"
 
@@ -36,6 +37,7 @@ func Start() {
 	directory.InitDirectoryRouter(r)
 	structure.InitStructureRoutes(r)
 	d4s.InitDigi4SchoolRouter(r)
+	task.InitTasksTasks(r)
 	log.Info("starting server at port 8080")
 	err := r.Run(":8080")
 	if err != nil {

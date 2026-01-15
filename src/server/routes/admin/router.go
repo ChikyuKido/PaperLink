@@ -14,4 +14,3 @@ func InitAdminRouter(r *gin.Engine) {
 
 	group.GET("/stats", Stats)
 }
-

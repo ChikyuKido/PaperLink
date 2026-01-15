@@ -32,6 +32,7 @@ func (repo *TaskRepo) StartTask(name string) (*entity.Task, error) {
 
 func (repo *TaskRepo) FinishTask(task *entity.Task) error {
 	task.Status = entity.COMPLETED
+	task.EndTime = time.Now().Unix()
 	err := repo.Save(task)
 	if err != nil {
 		return err

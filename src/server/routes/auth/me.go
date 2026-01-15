@@ -36,4 +36,3 @@ func Me(c *gin.Context) {
 
 	routes.JSONSuccessOK(c, MeResponse{Username: user.Username})
 }
-

@@ -144,7 +144,7 @@ func (c *Digi4SchoolClient) GetBooks() ([]structs.Book, error) {
 
 	books := make([]structs.Book, 0, len(result.Books))
 	for _, b := range result.Books {
-		if ok := isExpired(b.Expiry); !ok {
+		if ok := isExpired(b.Expiry); ok {
 			continue
 		}
 		ebookPlus := false

@@ -23,10 +23,12 @@ func (r *Repository[T]) SaveList(entities []*T) error {
 
 func (r *Repository[T]) Get(id any) (*T, error) {
 	var entity T
-	result := r.db.First(&entity, id)
+
+	result := r.db.Where("id = ?", id).First(&entity)
 	if result.Error != nil {
 		return nil, result.Error
 	}
+
 	return &entity, nil
 }
 

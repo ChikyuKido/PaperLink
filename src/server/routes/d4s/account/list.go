@@ -40,4 +40,3 @@ func List(c *gin.Context) {
 
 	routes.JSONSuccessOK(c, ListD4SAccountsResponse{Accounts: accounts})
 }
-

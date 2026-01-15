@@ -32,4 +32,12 @@ export const SIDEBAR_ROUTE_RULES: Record<string, SidebarRouteRule> = {
         hide: false,
         forceClosed: false,
     },
+    TaskList: {
+        hide: false,
+        forceClosed: false,
+    },
+    TaskView: {
+        hide: false,
+        forceClosed: false,
+    }
 }

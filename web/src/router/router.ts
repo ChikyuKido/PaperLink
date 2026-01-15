@@ -12,6 +12,8 @@ import AdminInvites from "@/views/AdminInvites.vue";
 import { refreshAccessToken } from "@/auth/refresh";
 import { accessToken } from "@/auth/auth";
 import { ensureCurrentUser } from "@/auth/ensure_user";
+import TaskView from "@/views/TaskView.vue";
+import TasksList from "@/views/TasksList.vue";
 
 const routes = [
     {
@@ -68,6 +70,16 @@ const routes = [
         path: '/auth',
         name: 'Auth',
         component: Auth,
+    },
+    {
+        path: '/admin/tasks',
+        name: 'Task List',
+        component: TasksList,
+    },
+    {
+        path: '/admin/task/:id',
+        name: 'Task View',
+        component: TaskView,
     },
 
 

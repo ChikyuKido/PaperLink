@@ -13,6 +13,7 @@ import (
 	"paperlink/service/task"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -124,8 +125,39 @@ func downloadBooks(l *task.TaskRunner, books []Book) error {
 		cmd.Start()
 		go func() {
 			scanner := bufio.NewScanner(stdout)
+			lastText := ""
+			start := time.Now()
+			var lastPageTime time.Time
+			var lastPage int
+
 			for scanner.Scan() {
-				l.Info(scanner.Text())
+				t := scanner.Text()
+				if strings.Contains(t, "PAGE_COUNT") && strings.Contains(lastText, "PAGE_COUNT") {
+					parts := strings.Split(t, ": ")
+					page, _ := strconv.Atoi(parts[1])
+					now := time.Now()
+
+					if lastPageTime.IsZero() {
+						lastPageTime = now
+					}
+
+					elapsed := now.Sub(start)
+					pagesSinceLast := page - lastPage
+					secondsSinceLast := now.Sub(lastPageTime).Seconds()
+					avgPerPage := elapsed.Seconds() / float64(page)
+					pagesPerSecond := float64(pagesSinceLast) / secondsSinceLast
+
+					l.ReplaceLastInfo(fmt.Sprintf(
+						"Downloaded %d Pages | Avg time/page: %.2fs | Pages/sec: %.2f | Total elapsed: %s",
+						page, avgPerPage, pagesPerSecond, elapsed.Truncate(1*time.Second),
+					))
+
+					lastPage = page
+					lastPageTime = now
+				} else {
+					l.Info(t)
+				}
+				lastText = t
 			}
 		}()
 

@@ -37,6 +37,7 @@ func DownloadHeblingBook(c *http.Client, data string, downloadPath string) ([]st
 		}
 		files = append(files, outputPDF)
 		page++
+		fmt.Printf("PAGE_COUNT: %d\n", page)
 	}
 	return files, nil
 }
