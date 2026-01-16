@@ -108,7 +108,6 @@ func downloadBooks(idPathMap map[string]string, username, password string) error
 		return err
 	}
 	completed := 0
-
 	for id, path := range idPathMap {
 		id = strings.TrimSpace(id)
 		if id == "" {

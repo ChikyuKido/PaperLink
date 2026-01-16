@@ -5,10 +5,15 @@ import (
 	"net/http"
 	"os"
 	"paperlink_d4s/downloader/helper"
+	"strings"
 )
 
-func DownloadD4sBook(c *http.Client, baseURL string, downloadPath string) ([]string, error) {
-	subPath, continuingSubPath := withSubPath(c, baseURL)
+func DownloadD4sBook(c *http.Client, downloadPath string, location string) ([]string, error) {
+	subPath, continuingSubPath := withSubPath(c, location)
+	baseURL := location
+	if strings.HasSuffix(location, "/") {
+		baseURL = location[:len(location)-1]
+	}
 	page := 1
 	err := os.Chdir(downloadPath)
 	if err != nil {
@@ -30,8 +35,9 @@ func DownloadD4sBook(c *http.Client, baseURL string, downloadPath string) ([]str
 			break
 		}
 		outputPDF, err := helper.ConvertAndCompressSVG(downloadPath, filename)
+
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("failed to convert and compress pdf: %w", err)
 		}
 		files = append(files, outputPDF)
 		page++
@@ -48,7 +54,7 @@ func withSubPath(c *http.Client, baseURL string) (bool, bool) {
 		return false, false
 	}
 	subPath := false
-	if resp.StatusCode != 404 {
+	if resp.StatusCode == 200 {
 		subPath = true
 	}
 	req, err = http.NewRequest("GET", baseURL+"/2/2.svg", nil)
@@ -57,7 +63,7 @@ func withSubPath(c *http.Client, baseURL string) (bool, bool) {
 	if err != nil {
 		return false, false
 	}
-	if resp.StatusCode != 404 {
+	if resp.StatusCode == 200 {
 		continuingSubPath = true
 	}
 	return subPath, continuingSubPath

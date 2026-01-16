@@ -25,7 +25,7 @@ func DownloadBook(book *structs.Book, outputPath string, digi4sCookie string) er
 		{Name: "digi4s", Value: digi4sCookie},
 	})
 
-	data, lastParams, lastURL, location, err := helper.GetLastLTI(client, book.DataCode)
+	data, _, lastURL, location, err := helper.GetLastLTI(client, book.DataCode)
 	if err != nil {
 		return nil
 	}
@@ -44,8 +44,7 @@ func DownloadBook(book *structs.Book, outputPath string, digi4sCookie string) er
 	var files []string
 	if book.EbookPlus {
 		if lastURL == "https://a.hpthek.at/lti" {
-			id := lastParams["resource_link_id"]
-			files, err = types.DownloadD4sBook(client, "https://a.hpthek.at/ebook/"+id, tmp)
+			files, err = types.DownloadD4sBook(client, tmp, location)
 			if err != nil {
 				return fmt.Errorf("failed to download book: %w", err)
 			}
@@ -63,7 +62,7 @@ func DownloadBook(book *structs.Book, outputPath string, digi4sCookie string) er
 			return fmt.Errorf("book source not supported")
 		}
 	} else {
-		files, err = types.DownloadD4sBook(client, "https://a.digi4school.at/ebook/"+book.DataId, tmp)
+		files, err = types.DownloadD4sBook(client, tmp, location)
 		if err != nil {
 			return fmt.Errorf("failed to download book: %w", err)
 		}
