@@ -194,6 +194,10 @@ func rescanForDBInsert(dir string, books []Book) error {
 	}
 	for _, file := range files {
 		for _, book := range books {
+			// already in db
+			if repo.Digi4SchoolBook.GetByUUID(book.UUID) != nil {
+				continue
+			}
 			if file.Name() == book.UUID+".pvf" {
 				fullPath := filepath.Join(dir, file.Name())
 				info, statErr := os.Stat(fullPath)
