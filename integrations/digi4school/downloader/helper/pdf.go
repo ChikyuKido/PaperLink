@@ -1,6 +1,7 @@
 package helper
 
 import (
+	"fmt"
 	"github.com/signintech/gopdf"
 	"os"
 	"os/exec"
@@ -9,39 +10,55 @@ import (
 )
 
 func ConvertAndCompressSVG(downloadPath, filename string) (string, error) {
+	inputSVG := filepath.Join(downloadPath, filename)
 	outputPDF := filepath.Join(downloadPath, strings.TrimSuffix(filename, ".svg")+".pdf")
+	tmpPDF := outputPDF + ".tmp"
+	finalPDF := outputPDF + ".final"
 
-	cmd := exec.Command(
+	if err := exec.Command(
 		"rsvg-convert",
 		"-f", "pdf",
 		"-o", outputPDF,
-		filepath.Join(downloadPath, filename),
-	)
-	if err := cmd.Run(); err != nil {
-		return "", err
+		inputSVG,
+	).Run(); err != nil {
+		return "", fmt.Errorf("rsvg-convert failed: %w", err)
 	}
 
-	gsCmd := exec.Command(
+	if err := exec.Command(
 		"gs",
 		"-sDEVICE=pdfwrite",
-		"-dCompatibilityLevel=1.4",
-		"-dPDFSETTINGS=/ebook",
+		"-dCompatibilityLevel=1.5",
+		"-dDetectDuplicateImages=true",
+		"-dSubsetFonts=true",
+		"-dEmbedAllFonts=true",
+		"-dCompressFonts=true",
 		"-dNOPAUSE",
 		"-dQUIET",
 		"-dBATCH",
-		"-sOutputFile="+outputPDF+".tmp",
+		"-sOutputFile="+tmpPDF,
 		outputPDF,
-	)
-	if err := gsCmd.Run(); err != nil {
-		return "", err
+	).Run(); err != nil {
+		return "", fmt.Errorf("ghostscript failed: %w", err)
 	}
 
-	if err := os.Rename(outputPDF+".tmp", outputPDF); err != nil {
+	if err := exec.Command(
+		"qpdf",
+		"--object-streams=generate",
+		"--stream-data=compress",
+		tmpPDF,
+		finalPDF,
+	).Run(); err != nil {
+		return "", fmt.Errorf("qpdf failed: %w", err)
+	}
+
+	if err := os.Rename(finalPDF, outputPDF); err != nil {
 		return "", err
 	}
+	_ = os.Remove(tmpPDF)
 
 	return outputPDF, nil
 }
+
 func ConvertPNGtoPDF(downloadPath, filename string, pngWidthPx, pngHeightPx int) (string, error) {
 	inputPNG := filepath.Join(downloadPath, filename)
 	outputPDF := filepath.Join(downloadPath, strings.TrimSuffix(filename, ".png")+".pdf")

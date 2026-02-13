@@ -26,11 +26,11 @@ import {
 import CardWithoutBorder from '@/components/own/CardWithoutBorder.vue'
 import type { Item } from '@/dto/item'
 import { apiFetch } from '@/auth/api'
+import { useRouter } from "vue-router"
 
-// --- Backend structure DTOs
 type ApiFileNode = { id: string; name: string; size: number }
 type ApiDirNode = { id: number; name: string; files: ApiFileNode[]; directories: ApiDirNode[] }
-
+const router = useRouter()
 function mapDirNodeToItems(node: ApiDirNode): Item[] {
   const dirs: Item[] = (node.directories ?? []).map(d => ({
     id: String(d.id),
@@ -189,7 +189,7 @@ function goForward() {
 }
 
 function openFile(item: Item) {
-  console.log('Open file:', item.name)
+  router.push("/pdf/"+item.id);
 }
 
 function handleItemClick(item: Item) {

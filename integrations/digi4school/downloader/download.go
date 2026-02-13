@@ -2,6 +2,7 @@ package downloader
 
 import (
 	"fmt"
+	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -69,7 +70,7 @@ func DownloadBook(book *structs.Book, outputPath string, digi4sCookie string) er
 	}
 
 	sort.Strings(files)
-	err = helper.WritePVFFromPDF(files, outputPath)
+	err = api.MergeCreateFile(files, outputPath, false, nil)
 	if err != nil {
 		return fmt.Errorf("failed to write pvf: %w", err)
 	}
