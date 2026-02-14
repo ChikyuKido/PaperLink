@@ -26,7 +26,7 @@ func DB() *gorm.DB {
 			logrus.Fatalf("Failed to create log directory: %v", err)
 		}
 		doesDBExist := true
-		if _, err = os.Stat("./data/db"); os.IsNotExist(err) {
+		if _, err = os.Stat("./data/app.db"); os.IsNotExist(err) {
 			doesDBExist = false
 		}
 		instance, err = gorm.Open(sqlite.Open("./data/app.db"), &gorm.Config{
