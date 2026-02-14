@@ -6,6 +6,7 @@ const (
 	RUNNING   TaskStatus = "RUNNING"
 	FAILED    TaskStatus = "FAILED"
 	COMPLETED TaskStatus = "COMPLETED"
+	STOPPED   TaskStatus = "STOPPED"
 )
 
 type Task struct {

@@ -1,6 +1,7 @@
 package task
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"paperlink/db/entity"
@@ -16,12 +17,19 @@ var (
 	dataDir     = "./data/tasks"
 )
 
+var (
+	ErrTaskNotFound   = errors.New("task not found")
+	ErrTaskNotRunning = errors.New("task is not running")
+)
+
 type TaskRunner struct {
-	Task     *entity.Task
-	logs     []string
-	logMu    sync.Mutex
-	Complete func() error
-	Fail     func() error
+	Task        *entity.Task
+	logs        []string
+	logMu       sync.Mutex
+	stopHandler func(*TaskRunner) error
+	Complete    func() error
+	Fail        func() error
+	Stop        func() error
 }
 
 type TaskInfo struct {
@@ -35,18 +43,25 @@ func Init() {
 	_ = os.MkdirAll(dataDir, os.ModePerm)
 }
 
-func CreateNewTask(name string) (*TaskRunner, error) {
+func CreateNewTask(name string, stopHandler ...func(*TaskRunner) error) (*TaskRunner, error) {
 	task, err := repo.Task.StartTask(name)
 	if err != nil {
 		return nil, err
 	}
 
+	var stopper func(*TaskRunner) error
+	if len(stopHandler) > 0 {
+		stopper = stopHandler[0]
+	}
+
 	runner := &TaskRunner{
-		Task: task,
-		logs: []string{},
+		Task:        task,
+		logs:        []string{},
+		stopHandler: stopper,
 	}
 	runner.Complete = func() error { return completeTask(runner) }
 	runner.Fail = func() error { return failTask(runner) }
+	runner.Stop = func() error { return stopTask(runner) }
 
 	taskStoreMu.Lock()
 	taskStore[task.ID] = runner
@@ -77,41 +92,65 @@ func (tr *TaskRunner) ReplaceLastInfo(msg string) {
 }
 
 func completeTask(tr *TaskRunner) error {
+	if tr.Task.Status != entity.RUNNING {
+		return nil
+	}
 	tr.logMu.Lock()
 	lines := append([]string(nil), tr.logs...)
 	tr.logMu.Unlock()
 
-	filePath := filepath.Join(dataDir, tr.Task.ID+".log")
-	f, err := os.Create(filePath)
-	if err != nil {
+	if err := writeLogFile(tr.Task.ID, lines); err != nil {
 		return err
 	}
-	defer f.Close()
-
-	for _, line := range lines {
-		_, _ = f.WriteString(line + "\n")
+	if err := repo.Task.FinishTask(tr.Task); err != nil {
+		return err
 	}
-
-	return repo.Task.FinishTask(tr.Task)
+	removeTask(tr.Task.ID)
+	return nil
 }
 
 func failTask(tr *TaskRunner) error {
+	if tr.Task.Status != entity.RUNNING {
+		return nil
+	}
 	tr.logMu.Lock()
 	lines := append([]string(nil), tr.logs...)
 	tr.logMu.Unlock()
 
-	filePath := filepath.Join(dataDir, tr.Task.ID+".log")
-	f, err := os.Create(filePath)
-	if err != nil {
+	if err := writeLogFile(tr.Task.ID, lines); err != nil {
 		return err
 	}
-	defer f.Close()
 
-	for _, line := range lines {
-		_, _ = f.WriteString(line + "\n")
+	if err := repo.Task.FailTask(tr.Task); err != nil {
+		return err
+	}
+	removeTask(tr.Task.ID)
+	return nil
+}
+
+func stopTask(tr *TaskRunner) error {
+	if tr.Task.Status != entity.RUNNING {
+		return ErrTaskNotRunning
 	}
 
-	return repo.Task.FailTask(tr.Task)
+	if tr.stopHandler != nil {
+		if err := tr.stopHandler(tr); err != nil {
+			tr.Err(fmt.Sprintf("stop handler failed: %v", err))
+		}
+	}
+
+	tr.logMu.Lock()
+	lines := append([]string(nil), tr.logs...)
+	tr.logMu.Unlock()
+
+	if err := writeLogFile(tr.Task.ID, lines); err != nil {
+		return err
+	}
+	if err := repo.Task.StopTask(tr.Task); err != nil {
+		return err
+	}
+	removeTask(tr.Task.ID)
+	return nil
 }
 
 func GetTaskInfo(uuid string) (*TaskInfo, error) {
@@ -133,7 +172,12 @@ func GetTaskInfo(uuid string) (*TaskInfo, error) {
 		if err != nil {
 			return nil, err
 		}
-		lines = append([]string(nil), string(content))
+		raw := strings.TrimSpace(string(content))
+		if raw != "" {
+			lines = strings.Split(raw, "\n")
+		} else {
+			lines = []string{}
+		}
 		task, err = repo.Task.Get(uuid)
 		if err != nil {
 			return nil, err
@@ -172,4 +216,41 @@ func ListTasks() ([]*TaskInfo, error) {
 	}
 
 	return list, nil
+}
+
+func StopTask(uuid string) error {
+	taskStoreMu.RLock()
+	runner, ok := taskStore[uuid]
+	taskStoreMu.RUnlock()
+	if !ok {
+		if t, err := repo.Task.Get(uuid); err != nil || t == nil {
+			return ErrTaskNotFound
+		}
+		return ErrTaskNotRunning
+	}
+	return runner.Stop()
+}
+
+func (tr *TaskRunner) IsRunning() bool {
+	return tr.Task.Status == entity.RUNNING
+}
+
+func writeLogFile(taskID string, lines []string) error {
+	filePath := filepath.Join(dataDir, taskID+".log")
+	f, err := os.Create(filePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	for _, line := range lines {
+		_, _ = f.WriteString(line + "\n")
+	}
+	return nil
+}
+
+func removeTask(taskID string) {
+	taskStoreMu.Lock()
+	delete(taskStore, taskID)
+	taskStoreMu.Unlock()
 }

@@ -1,15 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue"
 import { useRouter } from "vue-router"
-import { Activity, Clock, Eye, RefreshCcw } from "lucide-vue-next"
+import { Activity, Clock, Eye, RefreshCcw, Square } from "lucide-vue-next"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
 import {apiFetch} from "@/auth/api.ts";
 
-type TaskStatus = "RUNNING" | "FAILED" | "COMPLETED"
+type TaskStatus = "RUNNING" | "FAILED" | "COMPLETED" | "STOPPED"
 
 type Task = {
   id: string
@@ -23,6 +21,9 @@ type ApiResponse<T> = {
   code: number
   data: T
 }
+type ListTasksResponse = {
+  tasks: Task[]
+}
 
 const router = useRouter()
 const tasks = ref<Task[]>([])
@@ -31,21 +32,34 @@ const isLoading = ref(false)
 function statusVariant(s: TaskStatus) {
   if (s === "RUNNING") return "default"
   if (s === "COMPLETED") return "success"
+  if (s === "STOPPED") return "secondary"
   return "destructive"
 }
 
+function toMillis(ts: number) {
+  return ts < 1_000_000_000_000 ? ts * 1000 : ts
+}
+
 function duration(t: Task) {
-  const end = t.endTime || Date.now()
-  const sec = Math.max(0, Math.floor((end - t.startTime) / 1000))
+  const start = toMillis(t.startTime)
+  const end = t.endTime ? toMillis(t.endTime) : Date.now()
+  const sec = Math.max(0, Math.floor((end - start) / 1000))
   return `${Math.floor(sec / 60)}m ${sec % 60}s`
+}
+
+async function stopTask(taskId: string) {
+  const res = await apiFetch(`/api/v1/task/stop/${taskId}`, { method: "POST" })
+  if (!res.ok) return
+  await loadTasks()
 }
 
 async function loadTasks() {
   isLoading.value = true
   try {
     const r = await apiFetch("/api/v1/task/list")
-    const j: ApiResponse<Task[]> = await r.json()
-    if (j.data.tasks.length === 0) {
+    const j: ApiResponse<ListTasksResponse> = await r.json()
+    if (!j?.data?.tasks || j.data.tasks.length === 0) {
+      tasks.value = []
       return
     }
     tasks.value = j.data.tasks
@@ -80,38 +94,49 @@ onMounted(loadTasks)
     </section>
 
     <!-- List -->
-    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      <Card v-for="t in tasks" :key="t.id">
-        <CardContent class="p-4 space-y-3">
-          <div class="flex justify-between items-start gap-2">
-            <div>
-              <p class="font-semibold">{{ t.name }}</p>
-              <p class="text-xs text-neutral-500">
-                {{ new Date(t.startTime).toLocaleString() }}
-              </p>
+    <div class="rounded-2xl border bg-white dark:bg-neutral-900 overflow-hidden">
+      <div v-if="tasks.length === 0" class="px-6 py-8 text-sm text-neutral-500">
+        No tasks found.
+      </div>
+      <div v-else class="divide-y">
+        <div v-for="t in tasks" :key="t.id" class="px-4 py-3 flex items-center gap-3">
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2">
+              <p class="font-medium truncate">{{ t.name }}</p>
+              <Badge :variant="statusVariant(t.status)">
+                {{ t.status }}
+              </Badge>
             </div>
-            <Badge :variant="statusVariant(t.status)">
-              {{ t.status }}
-            </Badge>
+            <div class="mt-1 flex items-center gap-3 text-xs text-neutral-500">
+              <span>Started: {{ new Date(toMillis(t.startTime)).toLocaleString() }}</span>
+              <span class="inline-flex items-center gap-1">
+                <Clock class="h-3.5 w-3.5" />
+                {{ duration(t) }}
+              </span>
+            </div>
           </div>
 
-          <div class="flex items-center gap-2 text-xs text-neutral-500">
-            <Clock class="h-4 w-4" />
-            {{ duration(t) }}
-          </div>
-
-          <Separator />
-
-          <Button
-              class="w-full"
+          <div class="flex items-center gap-2 shrink-0">
+            <Button
+              v-if="t.status === 'RUNNING'"
+              size="sm"
+              variant="destructive"
+              @click="stopTask(t.id)"
+            >
+              <Square class="h-4 w-4 mr-1" />
+              Stop
+            </Button>
+            <Button
+              size="sm"
               variant="secondary"
               @click="router.push(`/admin/task/${t.id}`)"
-          >
-            <Eye class="h-4 w-4 mr-1" />
-            View
-          </Button>
-        </CardContent>
-      </Card>
+            >
+              <Eye class="h-4 w-4 mr-1" />
+              View
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>

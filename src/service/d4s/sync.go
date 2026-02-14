@@ -17,22 +17,28 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
 func StartSyncTask(accs []entity.Digi4SchoolAccount) (string, error) {
-	l, err := task.CreateNewTask("Digi4School Sync")
+	control := &syncControl{}
+	l, err := task.CreateNewTask("Digi4School Sync", control.Stop)
 	if err != nil {
 		return "", err
 	}
-	go syncAccounts(l, accs)
+	go syncAccounts(l, accs, control)
 	return l.Task.ID, nil
 }
 
-func syncAccounts(l *task.TaskRunner, accs []entity.Digi4SchoolAccount) {
+func syncAccounts(l *task.TaskRunner, accs []entity.Digi4SchoolAccount, control *syncControl) {
 	l.Info(fmt.Sprintf("Sync %d accounts", len(accs)))
 	accountBooks := make([]Book, 0)
 	for _, acc := range accs {
+		if !l.IsRunning() || control.IsStopRequested() {
+			l.Warn("task stopped by user")
+			return
+		}
 		l.Info(fmt.Sprintf("Search books for account: %s", acc.Username))
 		books, err := ListBooksForAccount(&acc)
 		if err != nil {
@@ -70,19 +76,24 @@ func syncAccounts(l *task.TaskRunner, accs []entity.Digi4SchoolAccount) {
 		}
 	}
 	l.Info(fmt.Sprintf("Found %d needed books. Start downloading", len(neededBooks)))
-	err = downloadBooks(l, neededBooks)
+	err = downloadBooks(l, neededBooks, control)
+	if control.IsStopRequested() {
+		l.Warn("sync task stopped by user")
+		return
+	}
 	if err != nil {
 		err := l.Fail()
 		if err != nil {
 			log.Error("Failed to fail the sync task")
 		}
+		return
 	}
 	err = l.Complete()
 	if err != nil {
 		log.Error("Failed to complete the sync task")
 	}
 }
-func downloadBooks(l *task.TaskRunner, books []Book) error {
+func downloadBooks(l *task.TaskRunner, books []Book, control *syncControl) error {
 	copyBooks := slices.Clone(books)
 	wd, err := os.Getwd()
 	if err != nil {
@@ -95,7 +106,11 @@ func downloadBooks(l *task.TaskRunner, books []Book) error {
 			return fmt.Errorf("cannot create directory %s: %v", baseDir, err)
 		}
 	}
+	control.SetRescanContext(baseDir, copyBooks)
 	for len(books) > 0 {
+		if !l.IsRunning() || control.IsStopRequested() {
+			return nil
+		}
 		username := books[0].Account.Username
 		sameAccountBooks := make([]Book, 0)
 		i := 0
@@ -122,9 +137,13 @@ func downloadBooks(l *task.TaskRunner, books []Book) error {
 		}
 		acc := sameAccountBooks[0].Account
 		cmd := exec.Command("./integrations/d4s", "download", downloadIdString.String(), acc.Username, acc.Password)
+		control.SetCurrentCmd(cmd)
 		stdout, _ := cmd.StdoutPipe()
 		stderr, _ := cmd.StderrPipe()
-		cmd.Start()
+		if err := cmd.Start(); err != nil {
+			control.ClearCurrentCmd(cmd)
+			return fmt.Errorf("failed to start downloader command: %w", err)
+		}
 		go func() {
 			scanner := bufio.NewScanner(stdout)
 			lastText := ""
@@ -173,6 +192,9 @@ func downloadBooks(l *task.TaskRunner, books []Book) error {
 		go func() {
 			for {
 				time.Sleep(180 * time.Second)
+				if !l.IsRunning() || control.IsStopRequested() {
+					return
+				}
 				err := rescanForDBInsert(baseDir, copyBooks)
 				if err != nil {
 					l.Err(fmt.Sprintf("Failed to rescan for books: %s", err.Error()))
@@ -180,10 +202,76 @@ func downloadBooks(l *task.TaskRunner, books []Book) error {
 			}
 		}()
 
-		cmd.Wait()
+		waitErr := cmd.Wait()
+		control.ClearCurrentCmd(cmd)
+		if waitErr != nil && !control.IsStopRequested() {
+			l.Err(fmt.Sprintf("Downloader process exited with error: %v", waitErr))
+		}
 		err := rescanForDBInsert(baseDir, copyBooks)
 		if err != nil {
 			l.Err(fmt.Sprintf("Failed to rescan for books: %s", err.Error()))
+		}
+		if !l.IsRunning() || control.IsStopRequested() {
+			return nil
+		}
+	}
+	return nil
+}
+
+type syncControl struct {
+	mu            sync.Mutex
+	currentCmd    *exec.Cmd
+	stopRequested bool
+	rescanBaseDir string
+	rescanBooks   []Book
+}
+
+func (s *syncControl) SetCurrentCmd(cmd *exec.Cmd) {
+	s.mu.Lock()
+	s.currentCmd = cmd
+	s.mu.Unlock()
+}
+
+func (s *syncControl) ClearCurrentCmd(cmd *exec.Cmd) {
+	s.mu.Lock()
+	if s.currentCmd == cmd {
+		s.currentCmd = nil
+	}
+	s.mu.Unlock()
+}
+
+func (s *syncControl) SetRescanContext(baseDir string, books []Book) {
+	s.mu.Lock()
+	s.rescanBaseDir = baseDir
+	s.rescanBooks = slices.Clone(books)
+	s.mu.Unlock()
+}
+
+func (s *syncControl) IsStopRequested() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.stopRequested
+}
+
+func (s *syncControl) Stop(l *task.TaskRunner) error {
+	s.mu.Lock()
+	s.stopRequested = true
+	cmd := s.currentCmd
+	baseDir := s.rescanBaseDir
+	books := slices.Clone(s.rescanBooks)
+	s.mu.Unlock()
+
+	if cmd != nil && cmd.Process != nil {
+		l.Warn("stopping digi4school downloader process")
+		if err := cmd.Process.Kill(); err != nil {
+			l.Err(fmt.Sprintf("failed to kill downloader process: %v", err))
+		}
+	}
+
+	if baseDir != "" && len(books) > 0 {
+		l.Info("running final rescan before stopping")
+		if err := rescanForDBInsert(baseDir, books); err != nil {
+			l.Err(fmt.Sprintf("final rescan failed: %v", err))
 		}
 	}
 	return nil

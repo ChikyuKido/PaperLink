@@ -48,10 +48,19 @@ func (repo *TaskRepo) FailTask(task *entity.Task) error {
 	}
 	return nil
 }
+func (repo *TaskRepo) StopTask(task *entity.Task) error {
+	task.Status = entity.STOPPED
+	task.EndTime = time.Now().Unix()
+	err := repo.Save(task)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
 func (repo *TaskRepo) ListCompletedOrFailed() ([]*entity.Task, error) {
 	var tasks []*entity.Task
-	err := repo.db.Where("status IN ?", []entity.TaskStatus{entity.COMPLETED, entity.FAILED}).Find(&tasks).Error
+	err := repo.db.Where("status IN ?", []entity.TaskStatus{entity.COMPLETED, entity.FAILED, entity.STOPPED}).Find(&tasks).Error
 	if err != nil {
 		return nil, err
 	}

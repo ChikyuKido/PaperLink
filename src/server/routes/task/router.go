@@ -14,4 +14,5 @@ func InitTasksTasks(r *gin.Engine) {
 	group.Use(middleware.Auth, middleware.Admin)
 	group.GET("/list", List)
 	group.GET("/view/:id", View)
+	group.POST("/stop/:id", Stop)
 }
