@@ -10,5 +10,5 @@ func InitPDFRouter(r *gin.Engine) {
 	group.Use(middleware.Auth)
 	group.GET("/thumbnails/:id/:range", GetThumbnailsRange)
 	group.GET("/thumbnails/:id", GetThumbnails)
-	group.GET("/:id/:page", GetPage)
+	group.GET("/:id", GetPage)
 }

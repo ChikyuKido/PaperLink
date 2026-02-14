@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"os"
 	"os/exec"
 	"paperlink/db/entity"
 	"paperlink/db/repo"
 	"paperlink/pvf"
 	"paperlink/service/task"
+	"paperlink/util"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -116,7 +118,7 @@ func downloadBooks(l *task.TaskRunner, books []Book) error {
 			}
 			downloadIdString.WriteString(book.DataId)
 			downloadIdString.WriteString("=")
-			downloadIdString.WriteString(filepath.Join(baseDir, book.UUID+".pvf"))
+			downloadIdString.WriteString(filepath.Join(baseDir, book.UUID+".pdf"))
 		}
 		acc := sameAccountBooks[0].Account
 		cmd := exec.Command("./integrations/d4s", "download", downloadIdString.String(), acc.Username, acc.Password)
@@ -198,23 +200,33 @@ func rescanForDBInsert(dir string, books []Book) error {
 			if repo.Digi4SchoolBook.GetByUUID(book.UUID) != nil {
 				continue
 			}
-			if file.Name() == book.UUID+".pvf" {
+			if file.Name() == book.UUID+".pdf" {
 				fullPath := filepath.Join(dir, file.Name())
 				info, statErr := os.Stat(fullPath)
 				if statErr != nil {
 					return fmt.Errorf("failed to stat file %s: %v", fullPath, statErr)
 				}
 
-				metadata, err := pvf.ReadMetadata(fullPath)
+				pageCount, err := api.PageCountFile(fullPath)
 				if err != nil {
-					return fmt.Errorf("failed to read metadata file %s: %v", fullPath, err)
+					return fmt.Errorf("failed to read page count file %s: %v", fullPath, err)
 				}
+				thumbPTFFile, err := pvf.WriteThumbnailPTFFromPDF(fullPath)
+				if err != nil {
+					return fmt.Errorf("failed to generate thumbnail ptf file %s: %v", fullPath, err)
+				}
+				thumbDst := strings.TrimSuffix(fullPath, filepath.Ext(fullPath)) + "_thumb.ptf"
+				if err := util.CopyFile(thumbPTFFile, thumbDst); err != nil {
+					_ = os.RemoveAll(filepath.Dir(thumbPTFFile))
+					return fmt.Errorf("failed to store thumbnail ptf file %s: %v", thumbDst, err)
+				}
+				_ = os.RemoveAll(filepath.Dir(thumbPTFFile))
 
 				fd := entity.FileDocument{
 					UUID:  book.UUID,
 					Path:  fullPath,
 					Size:  uint64(info.Size()),
-					Pages: metadata.PageCount,
+					Pages: uint64(pageCount),
 				}
 				_ = repo.FileDocument.Save(&fd)
 

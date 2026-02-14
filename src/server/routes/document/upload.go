@@ -14,6 +14,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/pdfcpu/pdfcpu/pkg/api"
 )
 
 type UploadDocumentResponse struct {
@@ -22,7 +23,7 @@ type UploadDocumentResponse struct {
 
 // Upload godoc
 // @Summary      Upload document file
-// @Description  Uploads a PDF, converts it to PVF, and stores it.
+// @Description  Uploads a PDF, generates thumbnail PTF, and stores the PDF.
 // @Tags         document
 // @Accept       multipart/form-data
 // @Produce      json
@@ -54,15 +55,6 @@ func Upload(c *gin.Context) {
 	}
 	log.Infof("upload saved tmp=%s took=%s", tmpDst, time.Since(saveStart))
 
-	pvfStart := time.Now()
-	pvfFile, err := pvf.WritePVFFromPDF(tmpDst)
-	if err != nil {
-		log.Errorf("failed to convert pdf to pvf: %v", err)
-		routes.JSONError(c, http.StatusInternalServerError, "failed to process file")
-		return
-	}
-	log.Infof("upload pvf conversion done path=%s took=%s", pvfFile, time.Since(pvfStart))
-
 	ptfStart := time.Now()
 	thumbPTFFile, err := pvf.WriteThumbnailPTFFromPDF(tmpDst)
 	if err != nil {
@@ -78,14 +70,14 @@ func Upload(c *gin.Context) {
 		return
 	}
 
-	copyPVFStart := time.Now()
-	dst := "./data/uploads/" + fileUUID + ".pvf"
-	if err := util.CopyFile(pvfFile, dst); err != nil {
-		log.Errorf("failed to copy pvf file: %v", err)
+	copyPDFStart := time.Now()
+	dst := "./data/uploads/" + fileUUID + ".pdf"
+	if err := util.CopyFile(tmpDst, dst); err != nil {
+		log.Errorf("failed to copy pdf file: %v", err)
 		routes.JSONError(c, http.StatusInternalServerError, "failed to store file")
 		return
 	}
-	log.Infof("upload copied pvf dst=%s took=%s", dst, time.Since(copyPVFStart))
+	log.Infof("upload copied pdf dst=%s took=%s", dst, time.Since(copyPDFStart))
 
 	copyPTFStart := time.Now()
 	thumbDst := "./data/uploads/" + fileUUID + "_thumb.ptf"
@@ -96,20 +88,19 @@ func Upload(c *gin.Context) {
 	}
 	log.Infof("upload copied ptf dst=%s took=%s", thumbDst, time.Since(copyPTFStart))
 
-	_ = os.RemoveAll(filepath.Dir(pvfFile))
 	_ = os.RemoveAll(filepath.Dir(thumbPTFFile))
 	_ = os.Remove(tmpDst)
 
 	stat, err := os.Stat(dst)
 	if err != nil {
-		log.Errorf("failed to stat pvf file: %v", err)
+		log.Errorf("failed to stat pdf file: %v", err)
 		routes.JSONError(c, http.StatusInternalServerError, "failed to store file")
 		return
 	}
 
-	metadata, err := pvf.ReadMetadata(dst)
+	pageCount, err := api.PageCountFile(dst)
 	if err != nil {
-		log.Errorf("failed to read pvf metadata: %v", err)
+		log.Errorf("failed to read pdf page count: %v", err)
 		routes.JSONError(c, http.StatusInternalServerError, "failed to read file metadata")
 		return
 	}
@@ -118,16 +109,16 @@ func Upload(c *gin.Context) {
 		UUID:  fileUUID,
 		Path:  dst,
 		Size:  uint64(stat.Size()),
-		Pages: metadata.PageCount,
+		Pages: uint64(pageCount),
 	}); err != nil {
 		log.Errorf("failed to save file document: %v", err)
 		routes.JSONError(c, http.StatusInternalServerError, "failed to save file")
 		return
 	}
 	if thumbStat, err := os.Stat(thumbDst); err == nil {
-		log.Infof("upload sizes pvf=%dB ptf=%dB pages=%d", stat.Size(), thumbStat.Size(), metadata.PageCount)
+		log.Infof("upload sizes pdf=%dB ptf=%dB pages=%d", stat.Size(), thumbStat.Size(), pageCount)
 	} else {
-		log.Infof("upload sizes pvf=%dB pages=%d (ptf stat failed: %v)", stat.Size(), metadata.PageCount, err)
+		log.Infof("upload sizes pdf=%dB pages=%d (ptf stat failed: %v)", stat.Size(), pageCount, err)
 	}
 	log.Infof("upload done fileUUID=%s total=%s", fileUUID, time.Since(uploadStart))
 

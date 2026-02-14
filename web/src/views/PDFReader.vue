@@ -74,8 +74,15 @@
             dark:border-neutral-800 dark:bg-neutral-900
             overflow-auto">
 
+        <div
+          v-if="readerError"
+          class="m-4 w-full max-w-2xl rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300"
+        >
+          {{ readerError }}
+        </div>
+
         <!-- padded wrapper for canvas -->
-        <div class="flex justify-center h-full p-4">
+        <div v-else class="flex justify-center h-full p-4">
           <canvas ref="canvasEl" class="block"></canvas>
         </div>
 
@@ -93,18 +100,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onBeforeUnmount } from "vue"
+import { ref, reactive, onMounted, onBeforeUnmount, shallowRef, markRaw } from "vue"
 import { useRoute } from "vue-router"
 import * as pdfjsLib from "pdfjs-dist/build/pdf.mjs"
 import pdfWorker from "pdfjs-dist/build/pdf.worker.mjs?worker"
 import { apiFetch } from "@/auth/api.ts"
+import { accessToken } from "@/auth/auth.ts"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-vue-next"
 
 pdfjsLib.GlobalWorkerOptions.workerPort = new pdfWorker()
 
 const route = useRoute()
-const pdfID = route.params.id
+const pdfID = String(route.params.id ?? "")
 
 const pageCount = ref(0)
 const currentPage = ref(1)
@@ -114,12 +122,11 @@ const thumbnails = ref<(string | null)[]>([])
 const THUMB_BATCH_SIZE = 50
 const thumbnailBatchLocks = reactive<Record<string, boolean>>({})
 const thumbnailBatchCache = reactive<Record<string, boolean>>({})
+const readerError = ref<string | null>(null)
 
-// Cache and fetch locks
-const pageCache = reactive<Record<number, Uint8Array>>({})
-const fetchLocks = reactive<Record<string, boolean>>({}) // key = "start-end"
 let keydownHandler: ((e: KeyboardEvent) => void) | null = null
 let currentRenderTask: { cancel: () => void; promise: Promise<void> } | null = null
+const pdfDocument = shallowRef<pdfjsLib.PDFDocumentProxy | null>(null)
 
 async function loadDocument() {
   const res = await apiFetch(`/api/v1/document/get/${pdfID}`)
@@ -127,6 +134,27 @@ async function loadDocument() {
   const doc = await res.json()
   pageCount.value = doc.file.pages || 0
   thumbnails.value = Array.from({ length: pageCount.value }, () => null)
+}
+
+async function loadPDFDocument() {
+  const headers: Record<string, string> = {}
+  if (accessToken.value) {
+    headers.Authorization = `Bearer ${accessToken.value}`
+  }
+  const task = pdfjsLib.getDocument({
+    url: `/api/v1/pdf/${pdfID}`,
+    httpHeaders: headers,
+    withCredentials: true,
+    rangeChunkSize: 512 * 1024,
+    disableAutoFetch: true,
+    disableStream: true,
+  })
+  pdfDocument.value = markRaw(await task.promise)
+
+  if (pdfDocument.value && pageCount.value !== pdfDocument.value.numPages) {
+    pageCount.value = pdfDocument.value.numPages
+    thumbnails.value = Array.from({ length: pageCount.value }, () => null)
+  }
 }
 
 async function fetchThumbnailBatch(startIndex: number) {
@@ -190,86 +218,34 @@ function ensureThumbnailBatchesForViewport() {
 
   ensureThumbnailBatchForPage(firstVisiblePage)
   ensureThumbnailBatchForPage(lastVisiblePage)
-  ensureThumbnailBatchForPage(lastVisiblePage + THUMB_BATCH_SIZE)
 }
 
 function onThumbnailScroll() {
   ensureThumbnailBatchesForViewport()
 }
 
-// Fetch multiple pages at once
-async function fetchPages(start: number, end: number) {
-  start = Math.max(1, start)
-  end = Math.min(pageCount.value, end)
-  const key = `${start}-${end}`
-  if (fetchLocks[key]) return
-  fetchLocks[key] = true
-
-  try {
-    const res = await apiFetch(`/api/v1/pdf/${pdfID}/${start}-${end}`)
-    if (!res.ok) return
-    const buf = await res.arrayBuffer()
-    const bytes = new Uint8Array(buf)
-
-    if (bytes[0] === 0) {
-      // single page
-      pageCache[start] = bytes.slice(1)
-    } else {
-      // multi-page
-      let offset = 1
-      let pageNum = start
-      while (offset < bytes.length && pageNum <= end) {
-        const size = Number(new DataView(bytes.buffer, offset, 8).getBigUint64(0))
-        offset += 8
-        pageCache[pageNum] = bytes.slice(offset, offset + size)
-        offset += size
-        pageNum++
-      }
-    }
-  } finally {
-    fetchLocks[key] = false
-  }
-}
-
-// Preload surrounding pages
-// Preload surrounding pages without fetching already cached pages
 function ensureSurrounding(n: number) {
-  const preloadBefore = Math.max(1, n - 1)
-  const preloadAfter = Math.min(pageCount.value, n + 2)
+  const pdf = pdfDocument.value
+  if (!pdf) return
 
-  // Compute contiguous ranges of pages that are **not cached**
-  const ranges: Array<[number, number]> = []
-  let rangeStart: number | null = null
-
+  const preloadBefore = n
+  const preloadAfter = Math.min(pageCount.value, n + 1)
   for (let i = preloadBefore; i <= preloadAfter; i++) {
-    if (!pageCache[i]) {
-      if (rangeStart === null) rangeStart = i
-    } else {
-      if (rangeStart !== null) {
-        ranges.push([rangeStart, i - 1])
-        rangeStart = null
-      }
-    }
-  }
-  if (rangeStart !== null) ranges.push([rangeStart, preloadAfter])
-
-  // Fetch only missing ranges
-  for (const [start, end] of ranges) {
-    fetchPages(start, end)
+    void pdf.getPage(i).catch(() => {
+      // Best-effort warm cache.
+    })
   }
 }
 
 
-// Render a single page from cache
 let renderToken = 0
 async function renderPage(n: number) {
   const token = ++renderToken
+  const pdf = pdfDocument.value
+  if (!pdf) return
   const canvas = canvasEl.value!
   const ctx = canvas.getContext("2d")!
-  if (!pageCache[n]) {
-    await fetchPages(n, n)
-  }
-  if (token !== renderToken || !pageCache[n]) return
+  if (token !== renderToken) return
 
   if (currentRenderTask) {
     try {
@@ -279,11 +255,7 @@ async function renderPage(n: number) {
     currentRenderTask = null
   }
 
-  // Use a copy so repeated renders from cache stay reliable.
-  const pageBytes = pageCache[n].slice()
-  const pdf = await pdfjsLib.getDocument({ data: pageBytes }).promise
-  if (token !== renderToken) return
-  const page = await pdf.getPage(1)
+  const page = await pdf.getPage(n)
   if (token !== renderToken) return
   const viewport = page.getViewport({ scale: 1.5 }) // default sharp scale
 
@@ -301,6 +273,7 @@ async function renderPage(n: number) {
 
 // Navigation
 function go(n: number) {
+  if (pageCount.value === 0) return
   n = Math.min(pageCount.value, Math.max(1, n))
   currentPage.value = n
   ensureThumbnailBatchForPage(n)
@@ -313,10 +286,18 @@ const prevPage = () => go(Math.max(currentPage.value - 1, 1))
 const nextPage = () => go(Math.min(currentPage.value + 1, pageCount.value))
 
 onMounted(async () => {
-  await loadDocument()
-  await fetchThumbnailBatch(0)
-  ensureThumbnailBatchesForViewport()
-  await renderPage(1)
+  try {
+    await loadDocument()
+    await loadPDFDocument()
+    if (pageCount.value === 0) return
+    await fetchThumbnailBatch(0)
+    ensureThumbnailBatchesForViewport()
+    await renderPage(1)
+  } catch (err) {
+    console.error("Failed to initialize PDF reader", err)
+    readerError.value = "Failed to load this PDF."
+    return
+  }
 
   keydownHandler = (e: KeyboardEvent) => {
     if (e.key === "ArrowRight" || e.key === "PageDown") nextPage()
@@ -337,6 +318,10 @@ onBeforeUnmount(() => {
   if (keydownHandler) {
     window.removeEventListener("keydown", keydownHandler)
     keydownHandler = null
+  }
+  if (pdfDocument.value) {
+    void pdfDocument.value.destroy()
+    pdfDocument.value = null
   }
   thumbnails.value.forEach((url) => {
     if (url) URL.revokeObjectURL(url)
