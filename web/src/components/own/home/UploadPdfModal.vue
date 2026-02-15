@@ -148,12 +148,14 @@ async function save() {
       error.value = 'Failed to create document.'
       return
     }
+    const resJson = await res.json()
+
 
     emit('submit', {
       name: payload.name,
       description: payload.description,
       tags: payload.tags,
-      fileUUID: payload.fileUUID,
+      fileUUID: resJson.data.uuid,
       directoryId: payload.directoryId,
       folderPath: payload.folderPath,
     })

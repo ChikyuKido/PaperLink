@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 )
 
@@ -13,7 +14,7 @@ func downloadEmbeddedAsset(url string, matches [][]string, client *http.Client) 
 	trimmedURL := url[:strings.LastIndex(url, "/")+1]
 	for _, match := range matches {
 		if len(match) > 1 {
-			if err := downloadFile(fmt.Sprintf(trimmedURL+match[1]), client); err != nil {
+			if err := downloadFile(trimmedURL+match[1], client); err != nil {
 				return fmt.Errorf("failed to download embedded asset %s: %w", match[1], err)
 			}
 		}
@@ -34,9 +35,11 @@ func downloadFile(url string, client *http.Client) error {
 	defer resp.Body.Close()
 
 	dirname := getDirName(url)
-	if _, err := os.Stat(dirname); os.IsNotExist(err) {
-		if err := os.MkdirAll(dirname, 0700); err != nil {
-			return fmt.Errorf("failed to create directory %s: %w", dirname, err)
+	if dirname != "" {
+		if _, err := os.Stat(dirname); os.IsNotExist(err) {
+			if err := os.MkdirAll(dirname, 0700); err != nil {
+				return fmt.Errorf("failed to create directory %s: %w", dirname, err)
+			}
 		}
 	}
 
@@ -93,10 +96,11 @@ func DownloadOnePage(url string, client *http.Client, subPath bool) (string, boo
 	number := strings.Repeat("0", 5-len(parts[0])) + parts[0]
 	filename = number + "." + parts[1]
 	if subPath {
-		filename = parts[0] + "/" + filename
-		err := os.MkdirAll(parts[0], 0700)
+		pageDir := normalizePageDir(parts[0])
+		filename = pageDir + "/" + filename
+		err := os.MkdirAll(pageDir, 0700)
 		if err != nil {
-			return "", false, fmt.Errorf("failed to create directory %s: %w", parts[0], err)
+			return "", false, fmt.Errorf("failed to create directory %s: %w", pageDir, err)
 		}
 	}
 
@@ -111,4 +115,12 @@ func DownloadOnePage(url string, client *http.Client, subPath bool) (string, boo
 	}
 
 	return filename, false, nil
+}
+
+func normalizePageDir(raw string) string {
+	page, err := strconv.Atoi(raw)
+	if err != nil || page < 0 {
+		return raw
+	}
+	return fmt.Sprintf("%04d", page)
 }

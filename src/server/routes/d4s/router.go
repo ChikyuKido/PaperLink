@@ -16,5 +16,6 @@ func InitDigi4SchoolRouter(r *gin.Engine) {
 	account.InitDigi4SchoolAccountRouter(group)
 
 	group.GET("/list", ListBooks)
+	group.GET("/thumbnail/:id", GetThumbnail)
 	group.POST("/takeBook/:id", TakeBook)
 }

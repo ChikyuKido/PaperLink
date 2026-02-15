@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue"
+import { computed, onBeforeUnmount, onMounted, ref } from "vue"
 import { MoreVertical, RefreshCcw, LibraryBig } from "lucide-vue-next"
 
+import { apiFetch } from "@/auth/api"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -25,6 +26,7 @@ const isLoadingBooks = ref(false)
 const books = ref<Digi4SchoolBook[]>([])
 const bookSearch = ref("")
 const takingBookIds = ref(new Set<number>())
+const bookThumbnails = ref<Record<number, string>>({})
 
 const filteredBooks = computed(() => {
   const q = bookSearch.value.trim().toLowerCase()
@@ -32,10 +34,45 @@ const filteredBooks = computed(() => {
   return books.value.filter((b) => (b.bookName ?? "").toLowerCase().includes(q))
 })
 
+function revokeThumbnailUrls() {
+  for (const url of Object.values(bookThumbnails.value)) {
+    URL.revokeObjectURL(url)
+  }
+}
+
+async function fetchFirstThumbnail(bookID: number): Promise<string | null> {
+  const res = await apiFetch(`/api/v1/d4s/thumbnail/${bookID}`)
+  if (!res.ok) return null
+
+  const blob = await res.blob()
+  return URL.createObjectURL(blob)
+}
+
+async function loadBookThumbnails(nextBooks: Digi4SchoolBook[]) {
+  const nextThumbnails: Record<number, string> = {}
+  const workers = Math.min(6, nextBooks.length)
+  let cursor = 0
+
+  async function worker() {
+    while (cursor < nextBooks.length) {
+      const i = cursor++
+      const book = nextBooks[i]
+      const url = await fetchFirstThumbnail(book.id).catch(() => null)
+      if (url) nextThumbnails[book.id] = url
+    }
+  }
+
+  await Promise.all(Array.from({ length: workers }, () => worker()))
+  revokeThumbnailUrls()
+  bookThumbnails.value = nextThumbnails
+}
+
 async function loadBooks() {
   isLoadingBooks.value = true
   try {
-    books.value = await listD4SBooks()
+    const nextBooks = await listD4SBooks()
+    books.value = nextBooks
+    await loadBookThumbnails(nextBooks)
   } catch (e: any) {
     showNotice({ type: "error", message: e?.message ?? "Failed to load books" })
   } finally {
@@ -57,6 +94,10 @@ async function onTakeBook(id: number) {
 
 onMounted(async () => {
   await loadBooks()
+})
+
+onBeforeUnmount(() => {
+  revokeThumbnailUrls()
 })
 </script>
 
@@ -141,13 +182,22 @@ onMounted(async () => {
           :key="book.id"
           class="overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm"
         >
-          <!-- cover placeholder -->
-          <div
-            class="relative aspect-[3/4] bg-gradient-to-br from-neutral-900 via-neutral-800 to-emerald-900/60 text-white"
-          >
-            <div class="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_30%_30%,#34d399,transparent_55%)]" />
-            <div class="absolute bottom-0 left-0 right-0 p-3">
-              <div class="text-[11px] uppercase tracking-[0.16em] text-emerald-200/90">Digi4School</div>
+          <div class="relative aspect-[3/4]">
+            <img
+              v-if="bookThumbnails[book.id]"
+              :src="bookThumbnails[book.id]"
+              :alt="book.bookName"
+              class="h-full w-full object-cover"
+              loading="lazy"
+            />
+            <div
+              v-else
+              class="h-full w-full bg-gradient-to-br from-neutral-900 via-neutral-800 to-emerald-900/60 text-white"
+            >
+              <div class="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_30%_30%,#34d399,transparent_55%)]" />
+              <div class="absolute bottom-0 left-0 right-0 p-3">
+                <div class="text-[11px] uppercase tracking-[0.16em] text-emerald-200/90">Digi4School</div>
+              </div>
             </div>
 
             <div class="absolute top-2 right-2">

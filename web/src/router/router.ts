@@ -1,7 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import HomeView from '@/views/Home.vue';
 import Search from "@/views/Search.vue";
-import Settings from "@/views/Settings.vue";
 import PDFReader from "@/views/PDFReader.vue";
 import Auth from "@/views/Auth.vue";
 import D4S from "@/views/D4S.vue";
@@ -14,6 +13,7 @@ import { accessToken } from "@/auth/auth";
 import { ensureCurrentUser } from "@/auth/ensure_user";
 import TaskView from "@/views/TaskView.vue";
 import TasksList from "@/views/TasksList.vue";
+import UserSettings from "@/views/UserSettings.vue";
 
 const routes = [
     {
@@ -29,7 +29,7 @@ const routes = [
     {
         path: '/settings',
         name: 'Settings',
-        component: Settings,
+        component: UserSettings,
     },
     {
         path: '/pdf/:id',

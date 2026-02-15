@@ -10,7 +10,7 @@ import (
 	"os/exec"
 	"paperlink/db/entity"
 	"paperlink/db/repo"
-	"paperlink/pvf"
+	"paperlink/ptf"
 	"paperlink/service/task"
 	"paperlink/util"
 	"path/filepath"
@@ -299,7 +299,7 @@ func rescanForDBInsert(dir string, books []Book) error {
 				if err != nil {
 					return fmt.Errorf("failed to read page count file %s: %v", fullPath, err)
 				}
-				thumbPTFFile, err := pvf.WriteThumbnailPTFFromPDF(fullPath)
+				thumbPTFFile, err := ptf.WriteThumbnailPTFFromPDF(fullPath)
 				if err != nil {
 					return fmt.Errorf("failed to generate thumbnail ptf file %s: %v", fullPath, err)
 				}

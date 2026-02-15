@@ -156,13 +156,7 @@ function updatePath(newPath: Item[], pushToHistory = true) {
   historyIndex.value++
 }
 
-function enterItem(item: Item) {
-  if (item.type === 'folder') {
-    updatePath([...path.value, item])
-  } else {
-    openFile(item)
-  }
-}
+
 
 function breadcrumbClick(index: number) {
   const newPath = index < 0 ? [] : path.value.slice(0, index + 1)
@@ -194,7 +188,7 @@ function openFile(item: Item) {
 
 function handleItemClick(item: Item) {
   if (item.type === 'folder') {
-    enterItem(item)
+    updatePath([...path.value, item])
   } else {
     openFile(item)
   }
