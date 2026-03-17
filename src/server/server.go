@@ -10,6 +10,7 @@ import (
 	"paperlink/server/routes/document"
 	"paperlink/server/routes/invite"
 	"paperlink/server/routes/pdf"
+	"paperlink/server/routes/pdfws"
 	"paperlink/server/routes/structure"
 	"paperlink/server/routes/task"
 	"paperlink/util"
@@ -91,6 +92,7 @@ func Start() {
 	auth.InitAuthRouter(r)
 	admin.InitAdminRouter(r)
 	pdf.InitPDFRouter(r)
+	pdfws.InitPDFWSRouter(r)
 	document.InitDocumentRouter(r)
 	invite.InitInviteRouter(r)
 	directory.InitDirectoryRouter(r)

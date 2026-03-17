@@ -7,6 +7,8 @@ import { accessToken } from '@/auth/auth'
 
 pdfjsLib.GlobalWorkerOptions.workerPort = new pdfWorker()
 
+type CollabStatus = 'idle' | 'connecting' | 'connected' | 'disconnected'
+
 export function usePdfReader() {
   const route = useRoute()
   const pdfID = computed(() => String(route.params.id ?? ''))
@@ -20,12 +22,16 @@ export function usePdfReader() {
   const thumbnailBatchLocks = reactive<Record<string, boolean>>({})
   const thumbnailBatchCache = reactive<Record<string, boolean>>({})
   const readerError = ref<string | null>(null)
+  const collabStatus = ref<CollabStatus>('idle')
+  const collabError = ref<string | null>(null)
 
   let keydownHandler: ((e: KeyboardEvent) => void) | null = null
   let currentRenderTask: { cancel: () => void; promise: Promise<void> } | null = null
   const pdfDocument = shallowRef<pdfjsLib.PDFDocumentProxy | null>(null)
   let initToken = 0
   let renderToken = 0
+  let collabToken = 0
+  let collabSocket: WebSocket | null = null
 
   function clearThumbnailBatchState() {
     for (const k of Object.keys(thumbnailBatchLocks)) delete thumbnailBatchLocks[k]
@@ -54,6 +60,100 @@ export function usePdfReader() {
     }
     clearThumbnails()
     clearThumbnailBatchState()
+  }
+
+  function setCollabDisconnected(message: string | null = null) {
+    collabStatus.value = 'disconnected'
+    collabError.value = message
+  }
+
+  function closeCollabConnection() {
+    collabToken++
+    collabStatus.value = 'idle'
+    collabError.value = null
+
+    if (!collabSocket) return
+
+    const socket = collabSocket
+    collabSocket = null
+    socket.onopen = null
+    socket.onmessage = null
+    socket.onerror = null
+    socket.onclose = null
+
+    if (socket.readyState === WebSocket.CONNECTING || socket.readyState === WebSocket.OPEN) {
+      socket.close()
+    }
+  }
+
+  async function connectCollab() {
+    const documentID = pdfID.value
+    if (!documentID) {
+      closeCollabConnection()
+      return
+    }
+
+    closeCollabConnection()
+    const token = collabToken
+    collabStatus.value = 'connecting'
+    collabError.value = null
+
+    try {
+      const res = await apiFetch(`/api/v1/pdfws/create/${documentID}`)
+      if (!res.ok) {
+        setCollabDisconnected('Live sync unavailable.')
+        return
+      }
+
+      const body = await res.json().catch(() => null)
+      const singleUseToken = body?.data?.token
+      if (typeof singleUseToken !== 'string' || singleUseToken.length === 0) {
+        setCollabDisconnected('Live sync unavailable.')
+        return
+      }
+
+      if (token !== collabToken) return
+
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+      const socketURL = `${protocol}//${window.location.host}/api/v1/pdfws/connect/${encodeURIComponent(documentID)}?token=${encodeURIComponent(singleUseToken)}`
+      const socket = new WebSocket(socketURL)
+      collabSocket = socket
+
+      socket.onopen = () => {
+        if (token !== collabToken || collabSocket !== socket) return
+        collabStatus.value = 'connected'
+        collabError.value = null
+      }
+
+      socket.onmessage = (event) => {
+        if (token !== collabToken || collabSocket !== socket) return
+
+        try {
+          const message = JSON.parse(String(event.data ?? '{}'))
+          if (message?.type === 'error' && typeof message.error === 'string') {
+            setCollabDisconnected(message.error)
+          }
+        } catch {
+        }
+      }
+
+      socket.onerror = () => {
+        if (token !== collabToken || collabSocket !== socket) return
+        setCollabDisconnected('Live sync unavailable.')
+      }
+
+      socket.onclose = () => {
+        if (token !== collabToken || collabSocket !== socket) return
+        collabSocket = null
+        if (collabStatus.value !== 'disconnected') {
+          setCollabDisconnected('Live sync disconnected.')
+        }
+      }
+    } catch (err) {
+      if (token !== collabToken) return
+      console.error('Failed to connect to collaboration websocket', err)
+      setCollabDisconnected('Live sync unavailable.')
+    }
   }
 
   async function loadDocument() {
@@ -252,7 +352,8 @@ export function usePdfReader() {
   }
 
   onMounted(async () => {
-    await initializeReader()
+    void initializeReader()
+    void connectCollab()
 
     keydownHandler = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return
@@ -276,12 +377,14 @@ export function usePdfReader() {
     () => route.params.id,
     async (next, prev) => {
       if (String(next ?? '') === String(prev ?? '')) return
-      await initializeReader()
+      void initializeReader()
+      void connectCollab()
     },
   )
 
   onBeforeUnmount(() => {
     initToken++
+    closeCollabConnection()
     if (keydownHandler) {
       window.removeEventListener('keydown', keydownHandler)
       keydownHandler = null
@@ -296,6 +399,8 @@ export function usePdfReader() {
     thumbnailScrollEl,
     thumbnails,
     readerError,
+    collabStatus,
+    collabError,
     onThumbnailScroll,
     go,
     goFirst,

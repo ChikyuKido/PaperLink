@@ -74,6 +74,21 @@
           </div>
 
           <div class="flex flex-wrap items-center gap-2">
+            <Badge
+              variant="outline"
+              class="gap-1.5 border-neutral-200 bg-neutral-50 text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200"
+            >
+              <LoaderCircle
+                v-if="collabStatus === 'connecting'"
+                class="h-3.5 w-3.5 animate-spin"
+              />
+              <Wifi
+                v-else-if="collabStatus === 'connected'"
+                class="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400"
+              />
+              <WifiOff v-else class="h-3.5 w-3.5 text-neutral-400 dark:text-neutral-500" />
+              {{ collabLabel }}
+            </Badge>
             <div class="flex items-center gap-2">
               <Input
                 v-model="pageInput"
@@ -94,6 +109,13 @@
             </div>
           </div>
         </header>
+
+        <div
+          v-if="collabError"
+          class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/80 dark:bg-amber-950/40 dark:text-amber-200"
+        >
+          {{ collabError }}
+        </div>
 
         <div class="flex min-h-0 flex-1 overflow-auto rounded-2xl border border-neutral-200 bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-950">
           <div
@@ -118,9 +140,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { usePdfReader } from '@/composables/usePdfReader'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-vue-next'
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LoaderCircle, Wifi, WifiOff } from 'lucide-vue-next'
 
 const {
   pageCount,
@@ -129,6 +152,8 @@ const {
   thumbnailScrollEl,
   thumbnails,
   readerError,
+  collabStatus,
+  collabError,
   onThumbnailScroll,
   go,
   goFirst,
@@ -141,6 +166,11 @@ const pageInput = ref('1')
 
 const isFirstPage = computed(() => currentPage.value <= 1)
 const isLastPage = computed(() => pageCount.value === 0 || currentPage.value >= pageCount.value)
+const collabLabel = computed(() => {
+  if (collabStatus.value === 'connecting') return 'Live sync connecting'
+  if (collabStatus.value === 'connected') return 'Live sync connected'
+  return 'Live sync offline'
+})
 
 watch(
   currentPage,
