@@ -1,6 +1,6 @@
 <template>
   <div class="h-[calc(100vh-2rem)] w-full overflow-hidden">
-    <section class="flex h-full min-h-0 gap-3">
+    <section class="grid h-full min-h-0 gap-3 [grid-template-columns:14rem_minmax(0,1fr)_16rem]">
       <aside class="flex h-full min-h-0 w-56 shrink-0 flex-col rounded-2xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
         <div class="border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
           <div class="text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-500">Pages</div>
@@ -126,24 +126,67 @@
           </div>
 
           <div v-else class="flex min-h-full w-full justify-center p-4 md:p-6">
-            <canvas
-              ref="canvasEl"
-              class="block max-w-full border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-white"
-            />
+            <div class="relative inline-block max-w-full">
+              <canvas
+                ref="canvasEl"
+                class="block max-w-full border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-white"
+              />
+              <div
+                ref="annotationHostEl"
+                class="absolute inset-0 z-10 overflow-hidden"
+              />
+            </div>
           </div>
         </div>
       </div>
+
+      <aside class="w-64 shrink-0">
+        <Card class="h-full gap-0 border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+          <CardHeader class="border-b border-neutral-200 dark:border-neutral-800">
+            <CardTitle class="text-sm">Edit Tools</CardTitle>
+            <div class="text-xs text-neutral-500 dark:text-neutral-400">
+              Page {{ currentPage }} · {{ annotationCount }} annotations
+            </div>
+          </CardHeader>
+          <CardContent class="space-y-3 pt-6">
+            <Button
+              variant="outline"
+              class="w-full justify-start"
+              :class="activeTool === 'select' ? 'border-neutral-900 text-neutral-900 dark:border-neutral-100 dark:text-neutral-100' : ''"
+              :disabled="!overlayReady"
+              @click="setActiveTool('select')"
+            >
+              <Pointer class="h-4 w-4" />
+              Select
+            </Button>
+            <Button
+              variant="outline"
+              class="w-full justify-start"
+              :disabled="!overlayReady"
+              @click="addTextbox"
+            >
+              <Type class="h-4 w-4" />
+              Add text box
+            </Button>
+            <div class="rounded-xl border border-dashed border-neutral-200 p-3 text-xs text-neutral-500 dark:border-neutral-700 dark:text-neutral-400">
+              More tools will plug into the same annotation layer later.
+            </div>
+          </CardContent>
+        </Card>
+      </aside>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { usePdfAnnotationOverlay } from '@/composables/usePdfAnnotationOverlay'
 import { usePdfReader } from '@/composables/usePdfReader'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LoaderCircle, Wifi, WifiOff } from 'lucide-vue-next'
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, LoaderCircle, Pointer, Type, Wifi, WifiOff } from 'lucide-vue-next'
 
 const {
   pageCount,
@@ -154,6 +197,7 @@ const {
   readerError,
   collabStatus,
   collabError,
+  pageRenderVersion,
   onThumbnailScroll,
   go,
   goFirst,
@@ -161,6 +205,19 @@ const {
   prevPage,
   nextPage,
 } = usePdfReader()
+
+const {
+  annotationHostEl,
+  annotationCount,
+  activeTool,
+  overlayReady,
+  setActiveTool,
+  addTextbox,
+} = usePdfAnnotationOverlay({
+  currentPage,
+  pdfCanvasEl: canvasEl,
+  pageRenderVersion,
+})
 
 const pageInput = ref('1')
 

@@ -185,7 +185,7 @@ func (s *Service) HandleConnection(documentID, token string, ws *websocket.Conn)
 			Type:       "event",
 			DocumentID: documentID,
 			User:       &user,
-			Payload:    json.RawMessage(payload),
+			Payload:    payload,
 		}, nil)
 	}
 }

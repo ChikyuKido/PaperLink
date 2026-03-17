@@ -24,6 +24,7 @@ export function usePdfReader() {
   const readerError = ref<string | null>(null)
   const collabStatus = ref<CollabStatus>('idle')
   const collabError = ref<string | null>(null)
+  const pageRenderVersion = ref(0)
 
   let keydownHandler: ((e: KeyboardEvent) => void) | null = null
   let currentRenderTask: { cancel: () => void; promise: Promise<void> } | null = null
@@ -47,6 +48,7 @@ export function usePdfReader() {
 
   function disposeCurrentPdf() {
     renderToken++
+    pageRenderVersion.value++
     if (currentRenderTask) {
       try {
         currentRenderTask.cancel()
@@ -308,6 +310,7 @@ export function usePdfReader() {
     await renderTask.promise
     if (token !== renderToken) return
 
+    pageRenderVersion.value++
     ensureSurrounding(n)
   }
 
@@ -401,6 +404,7 @@ export function usePdfReader() {
     readerError,
     collabStatus,
     collabError,
+    pageRenderVersion,
     onThumbnailScroll,
     go,
     goFirst,
