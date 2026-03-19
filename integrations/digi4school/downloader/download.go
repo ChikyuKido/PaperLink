@@ -12,6 +12,7 @@ import (
 	"paperlink_d4s/structs"
 	"path/filepath"
 	"sort"
+	"strings"
 )
 
 func DownloadBook(book *structs.Book, outputPath string, digi4sCookie string) error {
@@ -71,14 +72,23 @@ func DownloadBook(book *structs.Book, outputPath string, digi4sCookie string) er
 	}
 
 	sort.Strings(files)
-	mergedPath := filepath.Join(tmp, "merged.pdf")
-	err = api.MergeCreateFile(files, mergedPath, false, nil)
-	if err != nil {
-		return fmt.Errorf("failed to write merged pdf: %w", err)
-	}
-	_, err = helper.OptimizePDF(mergedPath, outputPath)
-	if err != nil {
-		return fmt.Errorf("failed to optimize merged pdf: %w", err)
+
+	switch strings.ToLower(filepath.Ext(outputPath)) {
+	case ".pdf":
+		mergedPath := filepath.Join(tmp, "merged.pdf")
+		err = api.MergeCreateFile(files, mergedPath, false, nil)
+		if err != nil {
+			return fmt.Errorf("failed to write merged pdf: %w", err)
+		}
+		if _, err := helper.OptimizePDF(mergedPath, outputPath); err != nil {
+			return fmt.Errorf("failed to optimize merged pdf: %w", err)
+		}
+	case ".pvf":
+		if err := helper.ConvertPDFPagesToPVF(files, outputPath); err != nil {
+			return fmt.Errorf("failed to convert page pdfs to pvf: %w", err)
+		}
+	default:
+		return fmt.Errorf("unsupported output format %q", filepath.Ext(outputPath))
 	}
 	return nil
 }

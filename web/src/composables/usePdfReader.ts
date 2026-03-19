@@ -1,9 +1,8 @@
-import { computed, markRaw, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import * as pdfjsLib from 'pdfjs-dist/build/pdf.mjs'
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?worker'
 import { apiFetch } from '@/auth/api'
-import { accessToken } from '@/auth/auth'
 import type { CollabClientMessage, CollabServerMessage, CollabStatus } from '@/lib/pdf_collab'
 
 pdfjsLib.GlobalWorkerOptions.workerPort = new pdfWorker()
@@ -28,7 +27,8 @@ export function usePdfReader() {
 
   let keydownHandler: ((e: KeyboardEvent) => void) | null = null
   let currentRenderTask: { cancel: () => void; promise: Promise<void> } | null = null
-  const pdfDocument = shallowRef<pdfjsLib.PDFDocumentProxy | null>(null)
+  const pageCache = reactive<Record<number, Uint8Array>>({})
+  const fetchLocks = reactive<Record<string, boolean>>({})
   let initToken = 0
   let renderToken = 0
   let collabToken = 0
@@ -57,10 +57,8 @@ export function usePdfReader() {
       }
       currentRenderTask = null
     }
-    if (pdfDocument.value) {
-      void pdfDocument.value.destroy()
-      pdfDocument.value = null
-    }
+    for (const page of Object.keys(pageCache)) delete pageCache[Number(page)]
+    for (const key of Object.keys(fetchLocks)) delete fetchLocks[key]
     clearThumbnails()
     clearThumbnailBatchState()
   }
@@ -231,26 +229,41 @@ export function usePdfReader() {
     thumbnails.value = Array.from({ length: pageCount.value }, () => null)
   }
 
-  async function loadPDFDocument() {
-    const headers: Record<string, string> = {}
-    if (accessToken.value) {
-      headers.Authorization = `Bearer ${accessToken.value}`
-    }
+  async function loadPDFDocument() {}
 
-    const task = pdfjsLib.getDocument({
-      url: `/api/v1/pdf/${pdfID.value}`,
-      httpHeaders: headers,
-      withCredentials: true,
-      rangeChunkSize: 512 * 1024,
-      disableAutoFetch: true,
-      disableStream: true,
-    })
+  async function fetchPages(start: number, end: number) {
+    start = Math.max(1, start)
+    end = Math.min(pageCount.value, end)
+    if (start > end) return
 
-    pdfDocument.value = markRaw(await task.promise)
+    const key = `${start}-${end}`
+    if (fetchLocks[key]) return
+    fetchLocks[key] = true
 
-    if (pdfDocument.value && pageCount.value !== pdfDocument.value.numPages) {
-      pageCount.value = pdfDocument.value.numPages
-      thumbnails.value = Array.from({ length: pageCount.value }, () => null)
+    try {
+      const res = await apiFetch(`/api/v1/pdf/${pdfID.value}/${start}-${end}`)
+      if (!res.ok) return
+
+      const buf = await res.arrayBuffer()
+      const bytes = new Uint8Array(buf)
+
+      if (bytes[0] === 0) {
+        pageCache[start] = bytes.slice(1)
+        return
+      }
+
+      let offset = 1
+      let pageNum = start
+      while (offset < bytes.length && pageNum <= end) {
+        const size = Number(new DataView(bytes.buffer, offset, 8).getBigUint64(0))
+        offset += 8
+        if (size <= 0 || offset + size > bytes.length) break
+        pageCache[pageNum] = bytes.slice(offset, offset + size)
+        offset += size
+        pageNum++
+      }
+    } finally {
+      fetchLocks[key] = false
     }
   }
 
@@ -324,14 +337,26 @@ export function usePdfReader() {
   }
 
   function ensureSurrounding(n: number) {
-    const pdf = pdfDocument.value
-    if (!pdf) return
+    const preloadBefore = Math.max(1, n - 1)
+    const preloadAfter = Math.min(pageCount.value, n + 2)
+    const ranges: Array<[number, number]> = []
+    let rangeStart: number | null = null
 
-    const preloadBefore = n
-    const preloadAfter = Math.min(pageCount.value, n + 1)
     for (let i = preloadBefore; i <= preloadAfter; i++) {
-      void pdf.getPage(i).catch(() => {
-      })
+      if (!pageCache[i]) {
+        if (rangeStart === null) rangeStart = i
+      } else if (rangeStart !== null) {
+        ranges.push([rangeStart, i - 1])
+        rangeStart = null
+      }
+    }
+
+    if (rangeStart !== null) {
+      ranges.push([rangeStart, preloadAfter])
+    }
+
+    for (const [start, end] of ranges) {
+      void fetchPages(start, end)
     }
   }
 
@@ -344,8 +369,6 @@ export function usePdfReader() {
 
   async function renderPage(n: number) {
     const token = ++renderToken
-    const pdf = pdfDocument.value
-    if (!pdf) return
     const canvas = canvasEl.value
     if (!canvas) return
     const ctx = canvas.getContext('2d')
@@ -360,8 +383,24 @@ export function usePdfReader() {
       currentRenderTask = null
     }
 
-    const page = await pdf.getPage(n)
-    if (token !== renderToken) return
+    if (!pageCache[n]) {
+      await fetchPages(n, n)
+    }
+    if (token !== renderToken || !pageCache[n]) {
+      return
+    }
+
+    const pageBytes = pageCache[n].slice()
+    const pdf = await pdfjsLib.getDocument({ data: pageBytes }).promise
+    if (token !== renderToken) {
+      void pdf.destroy()
+      return
+    }
+    const page = await pdf.getPage(1)
+    if (token !== renderToken) {
+      void pdf.destroy()
+      return
+    }
     const viewport = page.getViewport({ scale: 1.5 })
 
     canvas.width = viewport.width
@@ -370,6 +409,7 @@ export function usePdfReader() {
     const renderTask = page.render({ canvasContext: ctx, viewport })
     currentRenderTask = renderTask as { cancel: () => void; promise: Promise<void> }
     await renderTask.promise
+    void pdf.destroy()
     if (token !== renderToken) return
 
     pageRenderVersion.value++

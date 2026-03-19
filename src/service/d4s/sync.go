@@ -4,13 +4,14 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+
 	"github.com/google/uuid"
-	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"os"
 	"os/exec"
 	"paperlink/db/entity"
 	"paperlink/db/repo"
 	"paperlink/ptf"
+	"paperlink/pvf"
 	"paperlink/service/task"
 	"paperlink/util"
 	"path/filepath"
@@ -133,7 +134,7 @@ func downloadBooks(l *task.TaskRunner, books []Book, control *syncControl) error
 			}
 			downloadIdString.WriteString(book.DataId)
 			downloadIdString.WriteString("=")
-			downloadIdString.WriteString(filepath.Join(baseDir, book.UUID+".pdf"))
+			downloadIdString.WriteString(filepath.Join(baseDir, book.UUID+".pvf"))
 		}
 		acc := sameAccountBooks[0].Account
 		cmd := exec.Command("./integrations/d4s", "download", downloadIdString.String(), acc.Username, acc.Password)
@@ -288,17 +289,51 @@ func rescanForDBInsert(dir string, books []Book) error {
 			if repo.Digi4SchoolBook.GetByUUID(book.UUID) != nil {
 				continue
 			}
-			if file.Name() == book.UUID+".pdf" {
+			if file.Name() == book.UUID+".pvf" {
 				fullPath := filepath.Join(dir, file.Name())
 				info, statErr := os.Stat(fullPath)
 				if statErr != nil {
 					return fmt.Errorf("failed to stat file %s: %v", fullPath, statErr)
 				}
 
-				pageCount, err := api.PageCountFile(fullPath)
+				metadata, err := pvf.ReadMetadata(fullPath)
 				if err != nil {
-					return fmt.Errorf("failed to read page count file %s: %v", fullPath, err)
+					return fmt.Errorf("failed to read metadata file %s: %v", fullPath, err)
 				}
+
+				fd := entity.FileDocument{
+					UUID:  book.UUID,
+					Path:  fullPath,
+					Size:  uint64(info.Size()),
+					Pages: metadata.PageCount,
+				}
+				_ = repo.FileDocument.Save(&fd)
+
+				err = repo.Digi4SchoolBook.Save(&entity.Digi4SchoolBook{
+					UUID:      book.UUID,
+					BookName:  book.Name,
+					BookID:    book.DataId,
+					AccountID: book.Account.ID,
+					FileUUID:  book.UUID,
+				})
+				if err != nil {
+					return fmt.Errorf("failed to save book %s: %v", book.UUID, err)
+				}
+				continue
+			}
+			if file.Name() == book.UUID+".pdf" {
+				fullPath := filepath.Join(dir, file.Name())
+				viewPVFFile, err := pvf.WritePVFFromPDF(fullPath)
+				if err != nil {
+					return fmt.Errorf("failed to generate pvf file %s: %v", fullPath, err)
+				}
+				viewDst := strings.TrimSuffix(fullPath, filepath.Ext(fullPath)) + ".pvf"
+				if err := util.CopyFile(viewPVFFile, viewDst); err != nil {
+					_ = os.RemoveAll(filepath.Dir(viewPVFFile))
+					return fmt.Errorf("failed to store pvf file %s: %v", viewDst, err)
+				}
+				_ = os.RemoveAll(filepath.Dir(viewPVFFile))
+
 				thumbPTFFile, err := ptf.WriteThumbnailPTFFromPDF(fullPath)
 				if err != nil {
 					return fmt.Errorf("failed to generate thumbnail ptf file %s: %v", fullPath, err)
@@ -309,12 +344,22 @@ func rescanForDBInsert(dir string, books []Book) error {
 					return fmt.Errorf("failed to store thumbnail ptf file %s: %v", thumbDst, err)
 				}
 				_ = os.RemoveAll(filepath.Dir(thumbPTFFile))
+				_ = os.Remove(fullPath)
+
+				info, statErr := os.Stat(viewDst)
+				if statErr != nil {
+					return fmt.Errorf("failed to stat file %s: %v", viewDst, statErr)
+				}
+				metadata, err := pvf.ReadMetadata(viewDst)
+				if err != nil {
+					return fmt.Errorf("failed to read metadata file %s: %v", viewDst, err)
+				}
 
 				fd := entity.FileDocument{
 					UUID:  book.UUID,
-					Path:  fullPath,
+					Path:  viewDst,
 					Size:  uint64(info.Size()),
-					Pages: uint64(pageCount),
+					Pages: metadata.PageCount,
 				}
 				_ = repo.FileDocument.Save(&fd)
 
